@@ -1,0 +1,31 @@
+name: mmlu
+description: MMLU accuracy benchmark across LLM candidates
+version: 1
+
+task:
+  prompt: "MMLU multiple-choice accuracy evaluation"
+  input:
+    dataset: suites/testdata/mmlu-sample.yaml
+
+candidates:
+  - name: claude-sonnet-4-6
+    adapter: eva
+    cmd: "{{input.dataset}}"
+    model: claude-sonnet-4-6
+  - name: claude-haiku-4-5
+    adapter: eva
+    cmd: "{{input.dataset}}"
+    model: claude-haiku-4-5-20251001
+
+metrics:
+  - accuracy
+  - latency_ms
+  - cost_usd
+
+scorer:
+  strategy: single
+  weights:
+    accuracy: 1.0
+
+registry:
+  push: false
