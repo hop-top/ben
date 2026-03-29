@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -81,10 +83,13 @@ func suiteShowCmd(v *viper.Viper) *cobra.Command {
 				os.Exit(1)
 			}
 			format := v.GetString("format")
-			if format == "" {
-				format = output.Table
+			switch format {
+			case "json", "yaml":
+				return output.Render(os.Stdout, format, s)
+			default:
+				// Human-readable multi-section display.
+				return printSuiteHuman(os.Stdout, s)
 			}
-			return output.Render(os.Stdout, format, s)
 		},
 	}
 }
@@ -141,6 +146,37 @@ func loadAllSuites(dirs []string) ([]*spec.Spec, error) {
 		}
 	}
 	return result, nil
+}
+
+// printSuiteHuman prints a multi-section human-readable view of a spec.
+func printSuiteHuman(w io.Writer, s *spec.Spec) error {
+	fmt.Fprintf(w, "Name:        %s\n", s.Name)
+	if s.Description != "" {
+		fmt.Fprintf(w, "Description: %s\n", s.Description)
+	}
+	fmt.Fprintf(w, "Version:     %d\n", s.Version)
+	fmt.Fprintf(w, "Task:        %s\n", s.Task.Prompt)
+	if len(s.Task.Input) > 0 {
+		fmt.Fprintf(w, "Input:\n")
+		for k, v := range s.Task.Input {
+			fmt.Fprintf(w, "  %s: %s\n", k, v)
+		}
+	}
+	if len(s.Candidates) > 0 {
+		fmt.Fprintf(w, "Candidates:\n")
+		for _, c := range s.Candidates {
+			fmt.Fprintf(w, "  - name: %s  adapter: %s", c.Name, c.Adapter)
+			if c.Cmd != "" {
+				fmt.Fprintf(w, "  cmd: %s", c.Cmd)
+			}
+			fmt.Fprintln(w)
+		}
+	}
+	if len(s.Metrics) > 0 {
+		fmt.Fprintf(w, "Metrics:     %s\n", strings.Join(s.Metrics, ", "))
+	}
+	fmt.Fprintf(w, "Scorer:      %s\n", s.Scorer.Strategy)
+	return nil
 }
 
 // findSuite looks for a suite by name across all scan directories.
