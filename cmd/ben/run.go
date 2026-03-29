@@ -59,6 +59,9 @@ func runBenchmark(
 	scorerStr string,
 	inputKV map[string]string,
 ) error {
+	// 0. Discover binary plugins on PATH.
+	registry := plugin.DiscoverAll()
+
 	// 1. Load spec.
 	var s *spec.Spec
 	if suitePath != "" && taskDesc != "" {
@@ -133,7 +136,12 @@ func runBenchmark(
 		case "llm":
 			adpt = adapter.NewLLM()
 		default:
-			return fmt.Errorf("unknown adapter %q for candidate %q", c.Adapter, c.Name)
+			// Check plugin registry before erroring.
+			if pluginAdapter, ok := registry.LookupAdapter(c.Adapter); ok {
+				adpt = pluginAdapter
+			} else {
+				return fmt.Errorf("unknown adapter %q for candidate %q", c.Adapter, c.Name)
+			}
 		}
 
 		res, runErr := adpt.Run(ctx, c, s.Task.Input)
@@ -145,6 +153,14 @@ func runBenchmark(
 		}
 		if res != nil {
 			cr.RawOutput = res.Output
+			// Include plugin-reported metrics if present.
+			if pm, ok := res.Metadata["plugin_metrics"]; ok {
+				if pmMap, ok := pm.(map[string]float64); ok {
+					for k, val := range pmMap {
+						cr.Metrics[k] = val
+					}
+				}
+			}
 			for _, mname := range metricsToCollect {
 				m, _ := metrics.Get(mname)
 				cr.Metrics[mname] = m.Collect(res)
@@ -188,10 +204,10 @@ func runBenchmark(
 	}
 
 	r := &run.Run{
-		RunID:     runID,
-		Suite:     s.Name,
+		RunID:        runID,
+		Suite:        s.Name,
 		SuiteVersion: s.Version,
-		Timestamp: time.Now().UTC(),
+		Timestamp:    time.Now().UTC(),
 		Scorer: run.ScorerConfig{
 			Strategy: s.Scorer.Strategy,
 			Weights:  s.Scorer.Weights,
@@ -221,9 +237,20 @@ func runBenchmark(
 		// Non-fatal: log to stderr but continue to report.
 		fmt.Fprintf(os.Stderr, "warn: save run: %v\n", err)
 	}
+	if err := store.IndexRun(ctx, r); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: index run: %v\n", err)
+	}
 
 	// 8. Report.
 	format := v.GetString("format")
+
+	// Check registry for binary reporter plugins before falling back to built-ins.
+	if format != "" && format != "json" && format != "yaml" && format != "table" {
+		if pluginRep, ok := registry.LookupReporter(format); ok {
+			return pluginRep.Report(os.Stdout, r)
+		}
+	}
+
 	rep, err := reporter.New(format)
 	if err != nil {
 		return fmt.Errorf("reporter: %w", err)
