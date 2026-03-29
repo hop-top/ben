@@ -13,6 +13,7 @@ import (
 	"hop.top/ben/internal/adapter"
 	"hop.top/ben/internal/metrics"
 	_ "hop.top/ben/internal/metrics" // register builtins
+	"hop.top/ben/internal/plugin"
 	"hop.top/ben/internal/reporter"
 	"hop.top/ben/internal/run"
 	"hop.top/ben/internal/scorer"
@@ -92,6 +93,14 @@ func runBenchmark(
 		s = loaded
 	}
 
+	// 1b. Load config-declared metric plugins (e.g. llm_judge).
+	var pluginCfgs []plugin.MetricPluginConfig
+	if err := v.UnmarshalKey("plugins.metrics", &pluginCfgs); err == nil && len(pluginCfgs) > 0 {
+		if err := plugin.LoadMetricPlugins(pluginCfgs); err != nil {
+			return fmt.Errorf("load metric plugins: %w", err)
+		}
+	}
+
 	// 2. Determine metrics to collect.
 	metricsToCollect := s.Metrics
 	if len(metricsToCollect) == 0 {
@@ -122,6 +131,8 @@ func runBenchmark(
 		switch c.Adapter {
 		case "cli", "":
 			adpt = cliAdapter
+		case "llm":
+			adpt = adapter.NewLLM()
 		default:
 			return fmt.Errorf("unknown adapter %q for candidate %q", c.Adapter, c.Name)
 		}
