@@ -1,0 +1,29 @@
+version: "3"
+
+vars:
+  BIN: ben
+
+tasks:
+  build:
+    desc: Build the ben binary
+    cmds:
+      - go build ./cmd/ben
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./...
+
+  lint:
+    desc: Run linter (golangci-lint if available, else go vet)
+    cmds:
+      - |
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run
+        else
+          go vet ./...
+        fi
+
+  check:
+    desc: Run lint + test
+    deps: [lint, test]
