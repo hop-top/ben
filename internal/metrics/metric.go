@@ -2,6 +2,7 @@
 package metrics
 
 import (
+	"maps"
 	"sync"
 
 	"hop.top/ben/internal/adapter"
@@ -42,8 +43,6 @@ func All() map[string]Metric {
 	mu.RLock()
 	defer mu.RUnlock()
 	out := make(map[string]Metric, len(registry))
-	for k, v := range registry {
-		out[k] = v
-	}
+	maps.Copy(out, registry)
 	return out
 }

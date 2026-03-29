@@ -38,8 +38,7 @@ func Parse(strategy string, weights map[string]float64) (Scorer, error) {
 	if strategy == "raw" {
 		return &rawScorer{}, nil
 	}
-	if strings.HasPrefix(strategy, "single:") {
-		metric := strings.TrimPrefix(strategy, "single:")
+	if metric, ok := strings.CutPrefix(strategy, "single:"); ok {
 		if metric == "" {
 			return nil, fmt.Errorf("scorer: single strategy requires a metric name")
 		}

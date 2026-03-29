@@ -123,10 +123,9 @@ func (f *FromFlags) ToSpec() (*Spec, error) {
 
 	scorerStrategy := f.Scorer
 	scorerWeights := map[string]float64{}
-	if strings.HasPrefix(scorerStrategy, "weighted:") {
+	if pairs, ok := strings.CutPrefix(f.Scorer, "weighted:"); ok {
 		scorerStrategy = "weighted"
-		pairs := strings.TrimPrefix(f.Scorer, "weighted:")
-		for _, pair := range strings.Split(pairs, ",") {
+		for pair := range strings.SplitSeq(pairs, ",") {
 			kv := strings.SplitN(pair, "=", 2)
 			if len(kv) != 2 {
 				continue
@@ -136,8 +135,6 @@ func (f *FromFlags) ToSpec() (*Spec, error) {
 				scorerWeights[kv[0]] = w
 			}
 		}
-	} else if strings.HasPrefix(scorerStrategy, "single:") {
-		scorerStrategy = "single:" + strings.TrimPrefix(scorerStrategy, "single:")
 	}
 
 	input := f.Input
