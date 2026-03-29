@@ -64,9 +64,9 @@ func TestRegistryPull_HappyPath(t *testing.T) {
 		Timestamp:    time.Now().UTC().Truncate(time.Second),
 		Scorer:       run.ScorerConfig{Strategy: "raw"},
 		Candidates: []run.CandidateResult{
-			{Name: "cand-a", Metrics: map[string]float64{"latency_ms": 100}, Rank: 1},
+			{Name: "cand-a", Metrics: map[string]float64{"latency_ms": 100}},
 		},
-		Winner:   "",
+		Winner:   nil,
 		Metadata: run.Metadata{Host: "remote-host", BenVersion: "0.1.0"},
 	}
 

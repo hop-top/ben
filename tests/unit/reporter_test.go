@@ -26,17 +26,17 @@ func sampleRun() *run.Run {
 			{
 				Name:    "fast",
 				Metrics: map[string]float64{"latency_ms": 100, "exit_code": 0},
-				Score:   0.0,
-				Rank:    1,
+				Score:   floatPtr(0.0),
+				Rank:    intPtr(1),
 			},
 			{
 				Name:    "slow",
 				Metrics: map[string]float64{"latency_ms": 500, "exit_code": 0},
-				Score:   1.0,
-				Rank:    2,
+				Score:   floatPtr(1.0),
+				Rank:    intPtr(2),
 			},
 		},
-		Winner: "fast",
+		Winner: strPtr("fast"),
 		Metadata: run.Metadata{
 			Host:       "testhost",
 			BenVersion: "0.1.0",
@@ -81,7 +81,8 @@ func TestYAMLReporter_ValidYAML(t *testing.T) {
 	// Must parse back to run.Run.
 	var parsed run.Run
 	require.NoError(t, yaml.Unmarshal(buf.Bytes(), &parsed))
-	assert.Equal(t, "fast", parsed.Winner)
+	require.NotNil(t, parsed.Winner)
+	assert.Equal(t, "fast", *parsed.Winner)
 	assert.Equal(t, "test-suite", parsed.Suite)
 	require.Len(t, parsed.Candidates, 2)
 }

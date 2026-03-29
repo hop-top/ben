@@ -16,6 +16,10 @@ reporting) is written for eventual extraction into `hop-top/kit`.
 **Tech Stack:** Go, SQLite (local storage), YAML (spec files), stdio JSON protocol (plugins),
 Typer-style CLI via cobra.
 
+**Kit packages (hop.top/kit):** `sqlstore` (SQLite), `config` (Viper loader), `output`
+(table/JSON renderer), `cli` (cobra helpers), `xdg` (XDG paths). Use kit for ALL shared
+infrastructure; never reimplement in-repo.
+
 ---
 
 ## Core Concepts
@@ -251,9 +255,9 @@ ben registry push <run-id>
 - Create: `internal/adapter/cli.go` — CLI adapter
 - Create: `internal/metrics/builtin.go` — latency_ms, exit_code, output_size
 - Create: `internal/scorer/scorer.go` — single, weighted, raw
-- Create: `internal/storage/storage.go` — SQLite runs store
-- Create: `internal/reporter/json.go`
-- Create: `internal/reporter/table.go`
+- Create: `internal/storage/storage.go` — thin wrapper around kit/sqlstore
+- Create: `internal/reporter/json.go` — delegates to kit/output
+- Create: `internal/reporter/table.go` — delegates to kit/output
 - Create: `tests/unit/spec_test.go`
 - Create: `tests/unit/scorer_test.go`
 - Create: `tests/unit/adapter_cli_test.go`
@@ -341,7 +345,7 @@ ben registry push <run-id>
 - Plugin stdio protocol adds latency per metric; budget carefully for multi-candidate runs.
 - LLM judge quality_score adds cost; must be opt-in and budgeted per run.
 - Registry shared state requires trust model; v1 push/pull is opt-in, no auth required.
-- Shared infrastructure with hop-top/kit extraction is future work; avoid tight coupling now.
+- kit packages are already extracted; use them directly — no in-repo reimplementation.
 
 ---
 

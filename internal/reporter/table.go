@@ -28,7 +28,7 @@ func (t *tableReporter) Report(w io.Writer, r *run.Run) error {
 	for _, c := range r.Candidates {
 		rows = append(rows, toTableRow(c))
 	}
-	// Sort by rank; rank 0 (raw mode) goes last sorted by name.
+	// Sort by rank; unranked (raw mode, rank==0) goes last sorted by name.
 	sort.SliceStable(rows, func(i, j int) bool {
 		ri, rj := rows[i].Rank, rows[j].Rank
 		if ri == 0 && rj == 0 {
@@ -60,10 +60,18 @@ func toTableRow(c run.CandidateResult) tableRow {
 	for _, k := range keys {
 		parts = append(parts, fmt.Sprintf("%s=%.4g", k, c.Metrics[k]))
 	}
+	rank := 0
+	score := "-"
+	if c.Rank != nil {
+		rank = *c.Rank
+	}
+	if c.Score != nil {
+		score = fmt.Sprintf("%.4f", *c.Score)
+	}
 	return tableRow{
-		Rank:    c.Rank,
+		Rank:    rank,
 		Name:    c.Name,
-		Score:   fmt.Sprintf("%.4f", c.Score),
+		Score:   score,
 		Metrics: strings.Join(parts, " "),
 		Error:   c.Error,
 	}

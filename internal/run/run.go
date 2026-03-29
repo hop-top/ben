@@ -10,11 +10,12 @@ type ScorerConfig struct {
 }
 
 // CandidateResult holds per-candidate metrics, score, rank, and raw output.
+// Score and Rank are nil when no scoring was applied (raw mode).
 type CandidateResult struct {
 	Name      string             `json:"name"`
 	Metrics   map[string]float64 `json:"metrics"`
-	Score     float64            `json:"score"`
-	Rank      int                `json:"rank"`
+	Score     *float64           `json:"score"`
+	Rank      *int               `json:"rank"`
 	RawOutput string             `json:"raw_output"`
 	Error     string             `json:"error,omitempty"`
 }
@@ -34,6 +35,6 @@ type Run struct {
 	Timestamp    time.Time         `json:"timestamp"`
 	Scorer       ScorerConfig      `json:"scorer"`
 	Candidates   []CandidateResult `json:"candidates"`
-	Winner       string            `json:"winner"` // empty = raw mode / no winner
+	Winner       *string           `json:"winner"` // nil = raw mode / no winner
 	Metadata     Metadata          `json:"metadata"`
 }

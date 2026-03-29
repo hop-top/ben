@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
   test:
@@ -31,9 +33,6 @@ jobs:
           cache: true
           cache-dependency-path: ben/go.sum
 
-      - name: Install Task
-        run: go install github.com/go-task/task/v3/cmd/task@latest
-
       - name: Create go.work
         run: |
           cat > go.work <<'EOF'
@@ -46,17 +45,29 @@ jobs:
           EOF
           go work sync
 
-      - name: task check
+      - name: go mod download
         working-directory: ben
         env:
           GOWORK: ${{ github.workspace }}/go.work
-        run: task check
+        run: go mod download
 
-      - name: task coverage
+      - name: go build ./...
         working-directory: ben
         env:
           GOWORK: ${{ github.workspace }}/go.work
-        run: task coverage
+        run: go build ./...
+
+      - name: go vet ./...
+        working-directory: ben
+        env:
+          GOWORK: ${{ github.workspace }}/go.work
+        run: go vet ./...
+
+      - name: go test ./...
+        working-directory: ben
+        env:
+          GOWORK: ${{ github.workspace }}/go.work
+        run: go test -count=1 -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

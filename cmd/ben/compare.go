@@ -118,17 +118,25 @@ func buildDiff(a, b *run.Run) compareDiff {
 		}
 		diffs = append(diffs, candidateDiff{
 			Candidate: ca.Name,
-			WinnerA:   a.Winner == ca.Name,
-			WinnerB:   b.Winner == ca.Name,
+			WinnerA:   a.Winner != nil && *a.Winner == ca.Name,
+			WinnerB:   b.Winner != nil && *b.Winner == ca.Name,
 			Metrics:   mds,
 		})
 	}
 
+	winnerA := ""
+	if a.Winner != nil {
+		winnerA = *a.Winner
+	}
+	winnerB := ""
+	if b.Winner != nil {
+		winnerB = *b.Winner
+	}
 	return compareDiff{
 		RunIDA:     a.RunID,
 		RunIDB:     b.RunID,
-		WinnerA:    a.Winner,
-		WinnerB:    b.Winner,
+		WinnerA:    winnerA,
+		WinnerB:    winnerB,
 		Candidates: diffs,
 	}
 }

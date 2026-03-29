@@ -69,17 +69,21 @@ func renderQueryTable(w *os.File, runs []*run.Run) error {
 	rows := make([]queryRow, 0, len(runs))
 	for _, r := range runs {
 		score := ""
-		for _, c := range r.Candidates {
-			if c.Name == r.Winner {
-				score = fmt.Sprintf("%.4f", c.Score)
-				break
+		winner := ""
+		if r.Winner != nil {
+			winner = *r.Winner
+			for _, c := range r.Candidates {
+				if c.Name == winner && c.Score != nil {
+					score = fmt.Sprintf("%.4f", *c.Score)
+					break
+				}
 			}
 		}
 		rows = append(rows, queryRow{
 			RunID:     r.RunID,
 			Suite:     r.Suite,
 			Timestamp: r.Timestamp.Format("2006-01-02T15:04:05Z"),
-			Winner:    r.Winner,
+			Winner:    winner,
 			Score:     score,
 		})
 	}

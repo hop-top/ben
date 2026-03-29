@@ -185,9 +185,13 @@ func runBenchmark(
 		cr := run.CandidateResult{
 			Name:      sr.Name,
 			Metrics:   sr.Metrics,
-			Score:     sr.Score,
-			Rank:      sr.Rank,
 			RawOutput: sr.RawOutput,
+		}
+		if s.Scorer.Strategy != "raw" {
+			score := sr.Score
+			rank := sr.Rank
+			cr.Score = &score
+			cr.Rank = &rank
 		}
 		if sr.Err != nil {
 			cr.Error = sr.Err.Error()
@@ -195,11 +199,12 @@ func runBenchmark(
 		candidates2[i] = cr
 	}
 
-	winner := ""
+	var winner *string
 	if s.Scorer.Strategy != "raw" && len(scored) > 0 {
 		for _, sr := range scored {
 			if sr.Rank == 1 {
-				winner = sr.Name
+				w := sr.Name
+				winner = &w
 				break
 			}
 		}

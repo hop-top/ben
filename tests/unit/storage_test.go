@@ -26,19 +26,19 @@ func newRun(suite string, suiteVersion int, ts time.Time) *run.Run {
 			{
 				Name:      "xray",
 				Metrics:   map[string]float64{"latency_ms": 340, "quality_score": 0.91},
-				Score:     0.847,
-				Rank:      1,
+				Score:     floatPtr(0.847),
+				Rank:      intPtr(1),
 				RawOutput: "xray output",
 			},
 			{
 				Name:      "grep",
 				Metrics:   map[string]float64{"latency_ms": 180, "quality_score": 0.43},
-				Score:     0.31,
-				Rank:      2,
+				Score:     floatPtr(0.31),
+				Rank:      intPtr(2),
 				RawOutput: "grep output",
 			},
 		},
-		Winner: "xray",
+		Winner: strPtr("xray"),
 		Metadata: run.Metadata{
 			Host:       "testhost",
 			BenVersion: "0.1.0",
@@ -82,8 +82,8 @@ func TestSaveAndGet(t *testing.T) {
 	if !got.Timestamp.Equal(r.Timestamp) {
 		t.Errorf("Timestamp mismatch: got %v want %v", got.Timestamp, r.Timestamp)
 	}
-	if got.Winner != r.Winner {
-		t.Errorf("Winner mismatch: got %q want %q", got.Winner, r.Winner)
+	if (got.Winner == nil) != (r.Winner == nil) || (got.Winner != nil && *got.Winner != *r.Winner) {
+		t.Errorf("Winner mismatch: got %v want %v", got.Winner, r.Winner)
 	}
 	if got.Scorer.Strategy != r.Scorer.Strategy {
 		t.Errorf("Scorer.Strategy mismatch: got %q want %q", got.Scorer.Strategy, r.Scorer.Strategy)
@@ -180,7 +180,7 @@ func TestSaveOverwrite(t *testing.T) {
 	}
 
 	// Mutate winner and save again (same ID).
-	r.Winner = "grep"
+	r.Winner = strPtr("grep")
 	if err := s.Save(ctx, r); err != nil {
 		t.Fatalf("second Save: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestSaveOverwrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get after overwrite: %v", err)
 	}
-	if got.Winner != "grep" {
-		t.Errorf("expected overwritten winner %q, got %q", "grep", got.Winner)
+	if got.Winner == nil || *got.Winner != "grep" {
+		t.Errorf("expected overwritten winner %q, got %v", "grep", got.Winner)
 	}
 }
