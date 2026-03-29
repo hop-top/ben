@@ -1,0 +1,29 @@
+name: test-suite
+description: A test suite
+version: 1
+
+task:
+  prompt: "Find all HTTP handlers in {{input.repo}}"
+  input:
+    repo: ./testdata/sample-repo
+
+candidates:
+  - name: xray
+    adapter: cli
+    cmd: "xray explore --search {{input.prompt}} --path {{input.repo}}"
+  - name: grep
+    adapter: cli
+    cmd: "grep -r 'func.*Handler' {{input.repo}}"
+
+metrics:
+  - latency_ms
+  - exit_code
+
+scorer:
+  strategy: weighted
+  weights:
+    latency_ms: 0.5
+    exit_code: 0.5
+
+registry:
+  push: false
