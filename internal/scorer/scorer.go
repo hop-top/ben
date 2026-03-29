@@ -24,6 +24,14 @@ type ScoredResult struct {
 }
 
 // Scorer ranks a slice of CandidateResult values.
+//
+// Contract for Score:
+//   - Must return a slice of the same length as the input; one ScoredResult
+//     per input CandidateResult in any order.
+//   - Ordering is stable: ties preserve the original input order.
+//   - Rank 1 is best; ranks are contiguous starting at 1 (no gaps).
+//   - Rank 0 means no ranking was applied (raw mode); Score is also 0.
+//   - Must not mutate the input slice or any CandidateResult it contains.
 type Scorer interface {
 	Score(candidates []CandidateResult) []ScoredResult
 }

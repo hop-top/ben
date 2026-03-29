@@ -9,6 +9,13 @@ import (
 )
 
 // Reporter writes a Run result to w.
+//
+// Contract for Report:
+//   - All formatted output MUST go to w; nothing is written to stdout.
+//   - Diagnostic or debug messages MAY be written to stderr (os.Stderr).
+//   - Return a non-nil error only when writing to w fails; encoding errors
+//     that produce partial output must also return a non-nil error.
+//   - A nil error guarantees that w received a complete, valid document.
 type Reporter interface {
 	Report(w io.Writer, r *run.Run) error
 }

@@ -9,6 +9,17 @@ import (
 )
 
 // Metric measures one dimension of a candidate Result.
+//
+// Name contract:
+//   - Must return a non-empty, stable string that is unique across all
+//     registered metrics; it is used as the map key in CandidateResult.Metrics
+//     and must be valid as a YAML/JSON object key (no spaces, no dots).
+//
+// Collect contract:
+//   - Always returns a float64; never returns an error.
+//   - If the result lacks the data needed (e.g. output is empty), return a
+//     sentinel such as 0 or math.NaN() — never panic.
+//   - Must be safe to call from multiple goroutines concurrently.
 type Metric interface {
 	Name() string
 	Collect(r *adapter.Result) float64
