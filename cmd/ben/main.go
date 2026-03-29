@@ -38,7 +38,10 @@ func main() {
 		return nil
 	}
 
-	// Subcommands added in later tasks (run, compare, query, suite, registry).
+	// Subcommands.
+	root.Cmd.AddCommand(runCmd(root.Viper))
+	root.Cmd.AddCommand(compareCmd(root.Viper))
+	root.Cmd.AddCommand(queryCmd(root.Viper))
 
 	if err := root.Cmd.Execute(); err != nil {
 		os.Exit(1)

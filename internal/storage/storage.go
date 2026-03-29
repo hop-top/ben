@@ -100,7 +100,7 @@ func (s *Store) List(ctx context.Context, suite string, limit int) ([]*run.Run, 
 	if err != nil {
 		return nil, fmt.Errorf("list runs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*run.Run
 	for rows.Next() {
