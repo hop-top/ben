@@ -42,6 +42,7 @@ func main() {
 	root.Cmd.AddCommand(runCmd(root.Viper))
 	root.Cmd.AddCommand(compareCmd(root.Viper))
 	root.Cmd.AddCommand(queryCmd(root.Viper))
+	root.Cmd.AddCommand(registryCmd(root.Viper))
 
 	if err := root.Cmd.Execute(); err != nil {
 		os.Exit(1)
