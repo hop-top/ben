@@ -135,6 +135,8 @@ func runBenchmark(
 			adpt = cliAdapter
 		case "llm":
 			adpt = adapter.NewLLM()
+		case "eva":
+			adpt = adapter.NewEva()
 		default:
 			// Check plugin registry before erroring.
 			if pluginAdapter, ok := registry.LookupAdapter(c.Adapter); ok {
