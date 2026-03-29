@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/viper"
 	"hop.top/ben/internal/adapter"
 	"hop.top/ben/internal/metrics"
-	_ "hop.top/ben/internal/metrics" // register builtins
 	"hop.top/ben/internal/plugin"
 	"hop.top/ben/internal/reporter"
 	"hop.top/ben/internal/run"
