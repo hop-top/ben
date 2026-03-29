@@ -1,0 +1,45 @@
+version: "3"
+
+vars:
+  BIN: ben
+
+tasks:
+  build:
+    desc: Build the ben binary (smoke build only)
+    dir: .
+    cmds:
+      - go build -o /dev/null ./cmd/ben
+
+  test:
+    desc: Run all tests with race detector
+    dir: .
+    cmds:
+      - go test -count=1 -race ./...
+
+  lint:
+    desc: Run golangci-lint if on PATH, else go vet + go build
+    dir: .
+    cmds:
+      - |
+        if command -v golangci-lint >/dev/null 2>&1; then
+          golangci-lint run
+        else
+          go vet ./... && go build ./...
+        fi
+
+  coverage:
+    desc: Run tests with coverage and print function-level report
+    dir: .
+    cmds:
+      - go test -count=1 -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  check:
+    desc: Run lint + test (fails if either fails)
+    deps: [lint, test]
+
+  tidy:
+    desc: Tidy go modules
+    dir: .
+    cmds:
+      - go mod tidy

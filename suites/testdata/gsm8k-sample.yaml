@@ -1,0 +1,29 @@
+name: gsm8k-sample
+target: http://localhost:8000
+evaluators:
+  - name: exact_match
+    mode: binary
+
+tests:
+  - id: gsm8k-001
+    input: |
+      Solve the following math problem step by step. Give only the final numeric answer.
+
+      Janet has 3 apples. She buys 5 more apples and then gives 2 to her friend.
+      How many apples does Janet have now?
+    expected_output: "6"
+
+  - id: gsm8k-002
+    input: |
+      Solve the following math problem step by step. Give only the final numeric answer.
+
+      A store sells pencils for $0.25 each. If Tom buys 12 pencils and pays with a $5 bill,
+      how much change does he receive?
+    expected_output: "2.00"
+
+  - id: gsm8k-003
+    input: |
+      Solve the following math problem step by step. Give only the final numeric answer.
+
+      A train travels at 60 miles per hour. How many miles does it travel in 2.5 hours?
+    expected_output: "150"

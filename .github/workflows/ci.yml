@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: test (go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ["1.23"]
+
+    steps:
+      - name: Checkout ben
+        uses: actions/checkout@v4
+        with:
+          path: ben
+
+      - name: Checkout kit
+        uses: actions/checkout@v4
+        with:
+          repository: hop-top/kit
+          path: kit
+
+      - name: Set up Go ${{ matrix.go }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: ben/go.sum
+
+      - name: Install Task
+        run: go install github.com/go-task/task/v3/cmd/task@latest
+
+      - name: Create go.work
+        run: |
+          cat > go.work <<'EOF'
+          go 1.23
+
+          use (
+            ./ben
+            ./kit
+          )
+          EOF
+          go work sync
+
+      - name: task check
+        working-directory: ben
+        env:
+          GOWORK: ${{ github.workspace }}/go.work
+        run: task check
+
+      - name: task coverage
+        working-directory: ben
+        env:
+          GOWORK: ${{ github.workspace }}/go.work
+        run: task coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-go${{ matrix.go }}
+          path: ben/coverage.out
+          if-no-files-found: warn

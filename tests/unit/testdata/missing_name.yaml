@@ -1,0 +1,6 @@
+description: No name field
+version: 1
+candidates:
+  - name: foo
+    adapter: cli
+    cmd: echo hi

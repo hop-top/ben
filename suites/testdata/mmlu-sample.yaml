@@ -1,0 +1,39 @@
+name: mmlu-sample
+target: http://localhost:8000
+evaluators:
+  - name: exact_match
+    mode: binary
+
+tests:
+  - id: mmlu-anatomy-001
+    input: |
+      Answer the following multiple choice question. Reply with only the letter (A, B, C, or D).
+
+      Which of the following is the largest organ in the human body?
+      A) Heart
+      B) Liver
+      C) Skin
+      D) Brain
+    expected_output: "C"
+
+  - id: mmlu-physics-001
+    input: |
+      Answer the following multiple choice question. Reply with only the letter (A, B, C, or D).
+
+      What is the speed of light in a vacuum?
+      A) 3 x 10^6 m/s
+      B) 3 x 10^8 m/s
+      C) 3 x 10^10 m/s
+      D) 3 x 10^12 m/s
+    expected_output: "B"
+
+  - id: mmlu-history-001
+    input: |
+      Answer the following multiple choice question. Reply with only the letter (A, B, C, or D).
+
+      In which year did World War II end?
+      A) 1943
+      B) 1944
+      C) 1945
+      D) 1946
+    expected_output: "C"

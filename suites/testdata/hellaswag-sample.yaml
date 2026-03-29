@@ -1,0 +1,39 @@
+name: hellaswag-sample
+target: http://localhost:8000
+evaluators:
+  - name: exact_match
+    mode: binary
+
+tests:
+  - id: hellaswag-001
+    input: |
+      Choose the most plausible continuation. Reply with only the letter (A, B, C, or D).
+
+      A person is slicing vegetables on a cutting board. They pick up a carrot and...
+      A) throw it across the room
+      B) slice it into thin rounds with a knife
+      C) put it in the dishwasher
+      D) paint it blue
+    expected_output: "B"
+
+  - id: hellaswag-002
+    input: |
+      Choose the most plausible continuation. Reply with only the letter (A, B, C, or D).
+
+      Someone sits down at a piano. They place their hands on the keys and...
+      A) start swimming
+      B) fall asleep immediately
+      C) begin to play a melody
+      D) order a coffee
+    expected_output: "C"
+
+  - id: hellaswag-003
+    input: |
+      Choose the most plausible continuation. Reply with only the letter (A, B, C, or D).
+
+      A chef is preparing a recipe. They preheat the oven and...
+      A) go for a jog
+      B) measure and mix the ingredients
+      C) water the plants
+      D) read a newspaper
+    expected_output: "B"
