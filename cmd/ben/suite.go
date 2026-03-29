@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -148,16 +147,12 @@ func loadAllSuites(dirs []string) ([]*spec.Spec, error) {
 // Returns nil, nil if not found.
 func findSuite(dirs []string, name string) (*spec.Spec, error) {
 	for _, dir := range dirs {
-		err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			return err
-		})
-		if err != nil && !os.IsNotExist(err) {
-			return nil, fmt.Errorf("suite scan %s: %w", dir, err)
-		}
-
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("suite scan %s: %w", dir, err)
 		}
 		for _, e := range entries {
 			if e.IsDir() || filepath.Ext(e.Name()) != ".yaml" {
