@@ -1,5 +1,14 @@
 # ben
 
+> [!WARNING]
+> **🚧 Do Not Use — History Will Be Rewritten 🚧**
+>
+> This repo is undergoing major restructuring as we selectively
+> open-source internal tools built at
+> [Idea Crafters LLC](https://ideacrafters.com). Git history **will be
+> force-pushed and rewritten** multiple times. Do not fork, clone, or
+> depend on this repo in any capacity until we tag a stable release.
+
 General-purpose benchmarking tool — answers "which approach is better, and by how much?"
 for any measurable task: tools, implementations, deps, LLM calls, agents.
 
