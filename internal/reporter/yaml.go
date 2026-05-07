@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"hop.top/ben/internal/run"
-	"hop.top/kit/output"
+	"hop.top/kit/go/console/output"
 )
 
 // yamlReporter renders a Run as YAML.

@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"hop.top/ben/internal/spec"
-	"hop.top/kit/output"
-	"hop.top/kit/xdg"
+	"hop.top/kit/go/console/output"
+	"hop.top/kit/go/core/xdg"
 )
 
 // SuiteSummary is used for table/json/yaml listing output.

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"hop.top/ben/internal/run"
-	"hop.top/kit/output"
+	"hop.top/kit/go/console/output"
 )
 
 // tableRow is a single row in the ranked candidate table.

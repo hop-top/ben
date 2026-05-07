@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"hop.top/ben/internal/registry"
 	"hop.top/ben/internal/storage"
-	"hop.top/kit/xdg"
+	"hop.top/kit/go/core/xdg"
 )
 
 func registryCmd(v *viper.Viper) *cobra.Command {

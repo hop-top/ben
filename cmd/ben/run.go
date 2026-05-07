@@ -18,7 +18,7 @@ import (
 	"hop.top/ben/internal/scorer"
 	"hop.top/ben/internal/spec"
 	"hop.top/ben/internal/storage"
-	"hop.top/kit/xdg"
+	"hop.top/kit/go/core/xdg"
 )
 
 func runCmd(v *viper.Viper) *cobra.Command {

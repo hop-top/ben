@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"hop.top/ben/internal/run"
 	"hop.top/ben/internal/storage"
-	"hop.top/kit/output"
+	"hop.top/kit/go/console/output"
 )
 
 // metricDiff holds a per-metric comparison between two runs for one candidate.

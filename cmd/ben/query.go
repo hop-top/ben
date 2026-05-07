@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"hop.top/ben/internal/run"
 	"hop.top/ben/internal/storage"
-	"hop.top/kit/output"
+	"hop.top/kit/go/console/output"
 )
 
 // queryRow is one row in the query results table.

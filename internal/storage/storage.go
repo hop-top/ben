@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"hop.top/ben/internal/run"
-	"hop.top/kit/sqlstore"
+	"hop.top/kit/go/storage/sqlstore"
 )
 
 const migrateSQL = `
