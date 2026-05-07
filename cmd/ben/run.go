@@ -112,12 +112,6 @@ func runBenchmark(
 			metricsToCollect = append(metricsToCollect, name)
 		}
 	}
-	// Validate all requested metrics exist.
-	for _, name := range metricsToCollect {
-		if _, ok := metrics.Get(name); !ok {
-			return fmt.Errorf("unknown metric %q", name)
-		}
-	}
 
 	// 3. Build scorer.
 	sc, err := scorer.Parse(s.Scorer.Strategy, s.Scorer.Weights)
@@ -164,14 +158,29 @@ func runBenchmark(
 				}
 			}
 			for _, mname := range metricsToCollect {
-				m, _ := metrics.Get(mname)
-				cr.Metrics[mname] = m.Collect(res)
+				if _, exists := cr.Metrics[mname]; exists {
+					continue
+				}
+				if m, ok := metrics.Get(mname); ok {
+					cr.Metrics[mname] = m.Collect(res)
+				}
 			}
 		}
 		if runErr != nil {
 			cr.Err = runErr
 		}
 		scorerInputs = append(scorerInputs, cr)
+	}
+
+	for _, mname := range metricsToCollect {
+		if _, ok := metrics.Get(mname); ok {
+			continue
+		}
+		for _, cr := range scorerInputs {
+			if _, exists := cr.Metrics[mname]; !exists {
+				return fmt.Errorf("metric %q unavailable for candidate %q", mname, cr.Name)
+			}
+		}
 	}
 
 	// 5. Score.

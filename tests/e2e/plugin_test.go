@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +20,7 @@ func buildPlugin(t *testing.T, srcDir, binDir, name string) string {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, ".")
 	cmd.Dir = srcDir
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "build %s failed: %s", name, out)
@@ -79,6 +80,61 @@ scorer:
 
 	assert.Contains(t, string(out), "echocandidate")
 	assert.Contains(t, string(out), "echo-plugin-output")
+}
+
+func TestPluginAdapter_CustomMetricRequested(t *testing.T) {
+	ben := buildBen(t)
+	binDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	td := testdataDir(t)
+	buildPlugin(t, filepath.Join(td, "ben-adapter-echo"), binDir, "ben-adapter-echo")
+
+	origPath := os.Getenv("PATH")
+	augmentedPath := binDir + string(os.PathListSeparator) + origPath
+
+	suiteYAML := `
+name: echo-plugin-custom-metric-suite
+version: 1
+task:
+  prompt: "test"
+candidates:
+  - name: echocandidate
+    adapter: echo
+metrics:
+  - items_count
+scorer:
+  strategy: raw
+`
+	suiteFile := filepath.Join(t.TempDir(), "suite.yaml")
+	require.NoError(t, os.WriteFile(suiteFile, []byte(suiteYAML), 0o644))
+
+	cmd := exec.Command(ben, "run", "--suite", suiteFile, "--format", "json")
+	cmd.Env = append(os.Environ(),
+		"XDG_DATA_HOME="+dataDir,
+		"PATH="+augmentedPath,
+	)
+
+	out, err := cmd.Output()
+	require.NoError(t, err, "ben run failed: %s\nstderr: %s", out, func() string {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return string(ee.Stderr)
+		}
+		return ""
+	}())
+
+	var result map[string]any
+	require.NoError(t, json.Unmarshal(out, &result), "output is not valid JSON: %s", out)
+
+	cands, ok := result["candidates"].([]any)
+	require.True(t, ok)
+	require.Len(t, cands, 1)
+
+	candidate, ok := cands[0].(map[string]any)
+	require.True(t, ok)
+	metricsMap, ok := candidate["metrics"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 7.0, metricsMap["items_count"])
 }
 
 func TestPluginReporter_JSON2(t *testing.T) {

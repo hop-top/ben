@@ -25,8 +25,11 @@ func main() {
 		os.Exit(1)
 	}
 	resp := response{
-		Metrics: map[string]float64{"latency_ms": 1},
-		Output:  "echo-plugin-output",
+		Metrics: map[string]float64{
+			"latency_ms":  1,
+			"items_count": 7,
+		},
+		Output: "echo-plugin-output",
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(resp); err != nil {
 		fmt.Fprintln(os.Stderr, "ben-adapter-echo: encode:", err)
