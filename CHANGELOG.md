@@ -9,6 +9,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] - 2026-05-07
+
 ### Added
 
 - `ben list` — replaces `ben query`; lists recent runs from local storage
@@ -111,4 +115,5 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Exit code contract: `0` = successful run; `1` = ben error
 - `winner` field in JSON output as primary agent decision signal
 
+[0.2.0]: https://github.com/ideacrafterslabs/ben/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ideacrafterslabs/ben/releases/tag/v0.1.0
