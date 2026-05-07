@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	speccli "hop.top/kit/go/ai/toolspec/cli"
 	"hop.top/kit/go/console/cli"
 	kitcliconfig "hop.top/kit/go/console/cli/config"
 	kitlog "hop.top/kit/go/console/log"
@@ -22,6 +23,12 @@ const (
 	groupResults  = "results"
 	groupCatalog  = "catalog"
 	groupRegistry = "registry"
+
+	// schemaVersion is the ben CLI capability schema version exposed by
+	// `ben spec --version`. Bumped per kit/console/cli §13.2: MAJOR for
+	// removals/renames, MINOR for additive changes. Distinct from the
+	// binary version in cli.Config.Version.
+	schemaVersion = "1.0"
 )
 
 // commandGroups maps a top-level command name to its kit group ID.
@@ -34,6 +41,7 @@ var commandGroups = map[string]string{
 	"suite":    groupCatalog,
 	"registry": groupRegistry,
 	"config":   "management",
+	"spec":     "management",
 }
 
 func main() {
@@ -84,6 +92,7 @@ func main() {
 	)
 
 	registerHints(root)
+	speccli.RegisterSpecCommand(root, schemaVersion)
 	applyCommandGroups(root.Cmd)
 	// Eagerly install cobra's `completion` subcommand so we can stamp
 	// kit annotations on its auto-generated leaves before kit's
