@@ -125,7 +125,7 @@ func runBenSuite(t *testing.T, ben, dataDir, suitePath string) []byte {
 func queryLast1(t *testing.T, ben, dataDir, suiteName string) []map[string]any {
 	t.Helper()
 	cmd := exec.Command(ben,
-		"query",
+		"list",
 		"--suite", suiteName,
 		"--last", "1",
 		"--format", "json",

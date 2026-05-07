@@ -26,7 +26,17 @@ func registryPushCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:   "push <run-id>",
 		Short: "Push a local run to the remote registry",
-		Args:  cobra.ExactArgs(1),
+		Long: `Push a local run to the remote registry.
+
+Idempotent on (run-id, registry-url): re-pushing the same run-id to
+the same registry resolves to the same remote-id without creating a
+duplicate. Pushing the same run-id to two different registries
+produces two distinct remote-ids.`,
+		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{
+			"kit/side-effect": "write",
+			"kit/idempotent":  "conditional",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return registryPush(cmd.Context(), v, args[0])
 		},
@@ -38,6 +48,10 @@ func registryPullCmd(v *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pull",
 		Short: "Pull runs from the remote registry into local storage",
+		Annotations: map[string]string{
+			"kit/side-effect": "write",
+			"kit/idempotent":  "yes",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return registryPull(cmd.Context(), v, suite)
 		},

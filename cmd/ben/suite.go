@@ -36,6 +36,10 @@ func suiteListCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all known benchmark suites",
+		Annotations: map[string]string{
+			"kit/side-effect": "read",
+			"kit/idempotent":  "yes",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dirs, err := suiteScanDirs()
 			if err != nil {
@@ -68,6 +72,10 @@ func suiteShowCmd(v *viper.Viper) *cobra.Command {
 		Use:   "show <name>",
 		Short: "Show details of a benchmark suite",
 		Args:  cobra.ExactArgs(1),
+		Annotations: map[string]string{
+			"kit/side-effect": "read",
+			"kit/idempotent":  "yes",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			dirs, err := suiteScanDirs()

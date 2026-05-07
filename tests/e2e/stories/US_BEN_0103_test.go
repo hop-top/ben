@@ -35,10 +35,10 @@ func runInlineSuite(t *testing.T, ben, dataDir string) string {
 	return id
 }
 
-// runQuery executes ben query and returns (stdout, stderr, exit error).
+// runQuery executes ben list and returns (stdout, stderr, exit error).
 func runQuery(t *testing.T, ben, dataDir string, args ...string) ([]byte, []byte, error) {
 	t.Helper()
-	cmdArgs := append([]string{"query"}, args...)
+	cmdArgs := append([]string{"list"}, args...)
 	cmd := exec.Command(ben, cmdArgs...)
 	cmd.Env = append(os.Environ(), "XDG_DATA_HOME="+dataDir)
 	var stdout, stderr []byte

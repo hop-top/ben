@@ -12,25 +12,29 @@ import (
 	"hop.top/kit/go/console/output"
 )
 
-// queryRow is one row in the query results table.
-type queryRow struct {
-	RunID     string `table:"RunID"     json:"run_id"   yaml:"run_id"`
-	Suite     string `table:"Suite"     json:"suite"    yaml:"suite"`
+// listRow is one row in the run-list table.
+type listRow struct {
+	RunID     string `table:"RunID"     json:"run_id"    yaml:"run_id"`
+	Suite     string `table:"Suite"     json:"suite"     yaml:"suite"`
 	Timestamp string `table:"Timestamp" json:"timestamp" yaml:"timestamp"`
-	Winner    string `table:"Winner"    json:"winner"   yaml:"winner"`
-	Score     string `table:"Score"     json:"score"    yaml:"score"`
+	Winner    string `table:"Winner"    json:"winner"    yaml:"winner"`
+	Score     string `table:"Score"     json:"score"     yaml:"score"`
 }
 
-func queryCmd(v *viper.Viper) *cobra.Command {
+func listCmd(v *viper.Viper) *cobra.Command {
 	var (
 		suiteName string
 		last      int
 	)
 	cmd := &cobra.Command{
-		Use:   "query",
+		Use:   "list",
 		Short: "List recent benchmark runs",
+		Annotations: map[string]string{
+			"kit/side-effect": "read",
+			"kit/idempotent":  "yes",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return queryRuns(cmd.Context(), v, suiteName, last)
+			return listRuns(cmd.Context(), v, suiteName, last)
 		},
 	}
 	cmd.Flags().StringVar(&suiteName, "suite", "", "Filter by suite name")
@@ -38,7 +42,7 @@ func queryCmd(v *viper.Viper) *cobra.Command {
 	return cmd
 }
 
-func queryRuns(ctx context.Context, v *viper.Viper, suiteName string, last int) error {
+func listRuns(ctx context.Context, v *viper.Viper, suiteName string, last int) error {
 	dataDir, err := resolveDataDir()
 	if err != nil {
 		return fmt.Errorf("resolve data dir: %w", err)
@@ -55,18 +59,18 @@ func queryRuns(ctx context.Context, v *viper.Viper, suiteName string, last int) 
 	}
 
 	format := v.GetString("format")
-	if format == "table" {
-		return renderQueryTable(os.Stdout, runs)
+	if format == "table" || format == "" {
+		return renderListTable(os.Stdout, runs)
 	}
 	return output.Render(os.Stdout, format, runs)
 }
 
-func renderQueryTable(w *os.File, runs []*run.Run) error {
+func renderListTable(w *os.File, runs []*run.Run) error {
 	if len(runs) == 0 {
 		_, _ = fmt.Fprintln(w, "no runs found")
 		return nil
 	}
-	rows := make([]queryRow, 0, len(runs))
+	rows := make([]listRow, 0, len(runs))
 	for _, r := range runs {
 		score := ""
 		winner := ""
@@ -79,7 +83,7 @@ func renderQueryTable(w *os.File, runs []*run.Run) error {
 				}
 			}
 		}
-		rows = append(rows, queryRow{
+		rows = append(rows, listRow{
 			RunID:     r.RunID,
 			Suite:     r.Suite,
 			Timestamp: r.Timestamp.Format("2006-01-02T15:04:05Z"),

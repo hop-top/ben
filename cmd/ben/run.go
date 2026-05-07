@@ -34,6 +34,15 @@ func runCmd(v *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a benchmark suite or inline task",
+		Long: `Run a benchmark suite or inline task and persist the result.
+
+Each invocation produces a new run with a fresh run-id; runs are not
+deduplicated. To safely retry across restarts, persist run-ids
+client-side or use suite-level metadata to identify duplicates.`,
+		Annotations: map[string]string{
+			"kit/side-effect": "write",
+			"kit/idempotent":  "no",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBenchmark(cmd.Context(), v, suitePath, taskDesc, candidates, metricList, scorerStr, inputKV)
 		},

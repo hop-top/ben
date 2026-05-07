@@ -127,7 +127,7 @@ func TestUS_BEN_0102_RepeatableSuiteYAML(t *testing.T) {
 	// AC4: ben query --suite codebase-indexing --last 2 --format json returns
 	// an array of length 2 with distinct run_id values.
 	cmdQ := exec.Command(ben,
-		"query",
+		"list",
 		"--suite", "codebase-indexing",
 		"--last", "2",
 		"--format", "json",
