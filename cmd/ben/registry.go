@@ -2,14 +2,19 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"hop.top/ben/internal/registry"
 	"hop.top/ben/internal/storage"
+	"hop.top/kit/go/console/cli"
+	"hop.top/kit/go/console/output"
 	"hop.top/kit/go/core/xdg"
 )
 
@@ -39,6 +44,9 @@ produces two distinct remote-ids.`,
 			"kit/idempotent":  "conditional",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cli.IsDryRun(cmd) {
+				return registryPushDryRun(cmd, v, args[0])
+			}
 			return registryPush(cmd.Context(), v, args[0])
 		},
 	}
@@ -54,6 +62,9 @@ func registryPullCmd(v *viper.Viper) *cobra.Command {
 			"kit/idempotent":  "yes",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cli.IsDryRun(cmd) {
+				return registryPullDryRun(cmd, v, suite)
+			}
 			return registryPull(cmd.Context(), v, suite)
 		},
 	}
@@ -64,7 +75,7 @@ func registryPullCmd(v *viper.Viper) *cobra.Command {
 func registryPush(ctx context.Context, v *viper.Viper, runID string) error {
 	registryURL := v.GetString("registry.url")
 	if registryURL == "" {
-		return fmt.Errorf("registry.url not configured; set it in ben.yaml under registry.url")
+		return output.UsageError("registry.url not configured; set it in ben.yaml under registry.url")
 	}
 
 	dataDir, err := resolveDataDir()
@@ -83,6 +94,9 @@ func registryPush(ctx context.Context, v *viper.Viper, runID string) error {
 
 	r, err := store.Get(ctx, runID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return output.NotFoundError(fmt.Sprintf("run %q not found", runID))
+		}
 		return fmt.Errorf("load run %q: %w", runID, err)
 	}
 
@@ -103,7 +117,7 @@ func registryPush(ctx context.Context, v *viper.Viper, runID string) error {
 func registryPull(ctx context.Context, v *viper.Viper, suite string) error {
 	registryURL := v.GetString("registry.url")
 	if registryURL == "" {
-		return fmt.Errorf("registry.url not configured; set it in ben.yaml under registry.url")
+		return output.UsageError("registry.url not configured; set it in ben.yaml under registry.url")
 	}
 
 	dataDir, err := xdg.DataDir("ben")
@@ -137,4 +151,71 @@ func registryPull(ctx context.Context, v *viper.Viper, suite string) error {
 
 	slog.Info("registry pull complete", "suite", suite, "count", len(runs))
 	return nil
+}
+
+// registryPushDryRun emits a Plan describing what `registry push <id>`
+// would do, without contacting the remote registry or marking the run
+// as pushed.
+func registryPushDryRun(cmd *cobra.Command, v *viper.Viper, runID string) error {
+	registryURL := v.GetString("registry.url")
+	if registryURL == "" {
+		return output.UsageError("registry.url not configured; set it in ben.yaml under registry.url")
+	}
+	plan := cli.Plan{
+		Command: "ben registry push",
+		Args:    map[string]any{"run_id": runID, "registry_url": registryURL},
+		Effects: []cli.Effect{
+			{
+				Kind:       "create",
+				Target:     fmt.Sprintf("%s/runs/<remote-id>", registryURL),
+				Reversible: false,
+				Detail:     fmt.Sprintf("uploads run %q to remote", runID),
+			},
+			{
+				Kind:       "update",
+				Target:     fmt.Sprintf("registry/%s", runID),
+				Reversible: false,
+				Detail:     "marks local registry row pushed_at + remote_id",
+			},
+		},
+		GeneratedAt: time.Now().UTC(),
+	}
+	format := v.GetString("format")
+	if format == "" {
+		format = output.Table
+	}
+	return output.RenderPlan(cmd.OutOrStdout(), format, plan)
+}
+
+// registryPullDryRun emits a Plan describing what `registry pull` would
+// do, without contacting the remote registry.
+func registryPullDryRun(cmd *cobra.Command, v *viper.Viper, suite string) error {
+	registryURL := v.GetString("registry.url")
+	if registryURL == "" {
+		return output.UsageError("registry.url not configured; set it in ben.yaml under registry.url")
+	}
+	plan := cli.Plan{
+		Command: "ben registry pull",
+		Args:    map[string]any{"suite": suite, "registry_url": registryURL},
+		Effects: []cli.Effect{
+			{
+				Kind:       "fetch",
+				Target:     fmt.Sprintf("%s/runs?suite=%s", registryURL, suite),
+				Reversible: true,
+				Detail:     "GET up to 100 runs",
+			},
+			{
+				Kind:       "create",
+				Target:     "runs/<each-fetched-id>",
+				Reversible: true,
+				Detail:     "stores fetched runs in local DB",
+			},
+		},
+		GeneratedAt: time.Now().UTC(),
+	}
+	format := v.GetString("format")
+	if format == "" {
+		format = output.Table
+	}
+	return output.RenderPlan(cmd.OutOrStdout(), format, plan)
 }

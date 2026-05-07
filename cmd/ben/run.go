@@ -19,6 +19,8 @@ import (
 	"hop.top/ben/internal/scorer"
 	"hop.top/ben/internal/spec"
 	"hop.top/ben/internal/storage"
+	"hop.top/kit/go/console/cli"
+	"hop.top/kit/go/console/output"
 	"hop.top/kit/go/core/xdg"
 )
 
@@ -45,6 +47,9 @@ client-side or use suite-level metadata to identify duplicates.`,
 			"kit/idempotent":  "no",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cli.IsDryRun(cmd) {
+				return runDryRun(cmd, v, suitePath, taskDesc, candidates, metricList, scorerStr)
+			}
 			return runBenchmark(cmd.Context(), v, suitePath, taskDesc, candidates, metricList, scorerStr, inputKV)
 		},
 	}
@@ -282,6 +287,79 @@ func runBenchmark(
 		return fmt.Errorf("reporter: %w", err)
 	}
 	return rep.Report(os.Stdout, r)
+}
+
+// runDryRun assembles a Plan describing what `ben run` would do without
+// invoking adapters or persisting results. The plan lists each
+// candidate as a "create" effect on the run record. The actual run-id
+// is not generated during dry-run since no run is recorded.
+func runDryRun(cmd *cobra.Command, v *viper.Viper, suitePath, taskDesc string, candidates, metricList []string, scorerStr string) error {
+	if suitePath != "" && taskDesc != "" {
+		return output.UsageError("--suite and --task are mutually exclusive")
+	}
+
+	var s *spec.Spec
+	if suitePath != "" {
+		loaded, err := spec.Load(suitePath)
+		if err != nil {
+			return fmt.Errorf("load suite: %w", err)
+		}
+		s = loaded
+	} else {
+		normalized := make([]string, len(candidates))
+		for i, c := range candidates {
+			parts := strings.SplitN(c, "=", 3)
+			normalized[i] = strings.Join(parts, ",")
+		}
+		ff := &spec.FromFlags{
+			Task:       taskDesc,
+			Candidates: normalized,
+			Metrics:    metricList,
+			Scorer:     scorerStr,
+		}
+		loaded, err := ff.ToSpec()
+		if err != nil {
+			return fmt.Errorf("build spec: %w", err)
+		}
+		s = loaded
+	}
+
+	effects := make([]cli.Effect, 0, len(s.Candidates)+1)
+	effects = append(effects, cli.Effect{
+		Kind:       "create",
+		Target:     "run/<new-run-id>",
+		Reversible: false,
+		Detail:     fmt.Sprintf("suite=%q candidates=%d", s.Name, len(s.Candidates)),
+	})
+	for _, c := range s.Candidates {
+		adapterName := c.Adapter
+		if adapterName == "" {
+			adapterName = "cli"
+		}
+		effects = append(effects, cli.Effect{
+			Kind:       "execute",
+			Target:     fmt.Sprintf("candidate/%s", c.Name),
+			Reversible: true,
+			Detail:     fmt.Sprintf("adapter=%s cmd=%q", adapterName, c.Cmd),
+		})
+	}
+
+	plan := cli.Plan{
+		Command: "ben run",
+		Args: map[string]any{
+			"suite":  suitePath,
+			"task":   taskDesc,
+			"scorer": scorerStr,
+		},
+		Effects:     effects,
+		GeneratedAt: time.Now().UTC(),
+	}
+
+	format := v.GetString("format")
+	if format == "" {
+		format = output.Table
+	}
+	return output.RenderPlan(cmd.OutOrStdout(), format, plan)
 }
 
 // resolveDataDir checks for a project-local .ben/ dir first; falls back to xdg.DataDir.
