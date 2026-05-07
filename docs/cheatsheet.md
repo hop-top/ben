@@ -20,10 +20,17 @@ Run       — one execution record; persisted to .ben/ or XDG data dir
 
 ## Config
 
-Default search order: `$HOME/.config/ben/ben.yaml` then `.ben/ben.yaml`
+Default precedence (highest first):
+
+1. `--config <path>` flag (explicit override)
+2. project: `./.ben.yaml` or `./.ben/ben.yaml`
+3. user: `$XDG_CONFIG_HOME/ben/ben.yaml`
+4. system: `/etc/ben/ben.yaml`
 
 ```bash
 ben --config ./custom.yaml run ...   # explicit override
+ben config path                      # highest existing config file
+ben config paths --format json       # full ordered chain
 ```
 
 Key config fields:
@@ -168,13 +175,16 @@ Suite scan dirs (in order):
 
 ---
 
-## Query (Past Runs)
+## List & Show (Past Runs)
 
 ```bash
-ben query                            # 10 most recent runs
-ben query --last 25
-ben query --suite gsm8k              # filter by suite name
-ben query --format json
+ben list                             # 10 most recent runs
+ben list --last 25
+ben list --suite gsm8k               # filter by suite name
+ben list --format json
+
+ben show <run-id>                    # full detail of a single run
+ben show <run-id> --format json
 ```
 
 ---
@@ -187,6 +197,19 @@ ben compare <run-id-a> <run-id-b> --format json
 ```
 
 Shows per-candidate, per-metric delta (B − A) and winner in each run.
+
+---
+
+## Dry-run
+
+`run` and `registry push`/`registry pull` accept `--dry-run` and emit
+a structured Plan instead of executing. The Plan describes the
+intended effects so agents (and humans) can preview before committing.
+
+```bash
+ben run --suite ... --dry-run --format json
+ben registry push <run-id> --dry-run
+```
 
 ---
 
@@ -247,6 +270,43 @@ Reference in suite YAML: `metrics: [quality]`
 
 Run record key fields: `run_id`, `suite`, `timestamp`, `winner`, `scorer`,
 `candidates[].metrics`, `candidates[].score`, `candidates[].rank`
+
+---
+
+## Capability Manifest (Agents)
+
+```bash
+ben spec --version                   # {"schema_version":"1.0"}
+ben spec --format json               # full machine-readable manifest
+ben --api-version=1.0 ...            # negotiate compatibility mode
+```
+
+Schema bumps:
+- MAJOR: rename or remove a command, flag, or output field
+- MINOR: additive (new command, new flag with safe default, new field)
+
+---
+
+## Delegation Safety
+
+```bash
+ben registry push <id> --confirm=yes        # auto-confirm prompts
+ben run --suite ... --max-ops=10            # cap mutating ops per invocation
+ben run --suite ... --policy=ci             # named policy from
+                                            # $XDG_CONFIG_HOME/ben/policies/ci.yaml
+```
+
+Side-effect tags per command (visible via `ben spec`):
+
+| Command           | Side-effect | Idempotent  |
+|-------------------|-------------|-------------|
+| `run`             | write       | no          |
+| `list`            | read        | yes         |
+| `show`            | read        | yes         |
+| `compare`         | read        | yes         |
+| `suite list/show` | read        | yes         |
+| `registry push`   | write       | conditional |
+| `registry pull`   | write       | yes         |
 
 ---
 

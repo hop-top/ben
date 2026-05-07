@@ -7,6 +7,52 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `ben list` — replaces `ben query`; lists recent runs from local storage
+- `ben show <run-id>` — fetch a single run by id
+- `ben config path` / `ben config paths` — inspect config file precedence
+  chain (project → user → system) provided by kit/console/cli/config
+- `ben spec` / `ben spec --version` — emit machine-readable capability
+  manifest per kit conventions §13; agents use this for compatibility
+  negotiation before issuing other commands
+- `--dry-run` on `run`, `registry push`, `registry pull` — emits a
+  structured Plan describing intended effects without applying them
+- Side-effect (`kit/side-effect`) and idempotency (`kit/idempotent`)
+  annotations on every leaf command; available via `ben spec`
+- `--confirm`, `--max-ops`, `--policy` global flags wired by kit for
+  agent-driven invocations (delegation safety, conventions §8.6)
+- Group taxonomy in `--help`: EXECUTE, RESULTS, CATALOG, REGISTRY;
+  MANAGEMENT (config, spec, completion) auto-hidden
+- Hints after successful commands (silenced by `--no-hints` or
+  non-TTY)
+- Structured JSON error envelope (`code`/`message`/`exit_code`) under
+  `--format json|yaml`
+- Config layering picks up `$XDG_CONFIG_HOME/ben/ben.yaml` and
+  `/etc/ben/ben.yaml` in addition to project-local files
+
+### Changed
+
+**BREAKING**
+
+- `ben query` removed; callers must use `ben list` (no deprecation
+  alias). `--suite` and `--last` flags are unchanged.
+- Registry push/pull completion messages move from stdout to stderr
+  (via slog) so `--format json` pipelines stay clean.
+- Errors for missing runs/suites and missing `registry.url` now use
+  structured exit codes (3 NOT_FOUND, 2 USAGE) instead of generic 1.
+- Kit upgrade: imports moved from `hop.top/kit/<pkg>` to
+  `hop.top/kit/go/<area>/<pkg>` (kit's March 2026 restructure).
+
+### Fixed
+
+- Plugin-supplied custom metrics are now passed through to the
+  candidate result instead of being rejected by metric validation.
+
+---
+
 ## [0.1.0] - 2026-03-28
 
 ### Added

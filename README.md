@@ -35,8 +35,11 @@ ben run --suite .ben/suites/codebase-indexing.yaml
 # Compare two historical runs
 ben compare 01HX...abc 01HX...def
 
-# Query last 10 runs for a suite
-ben query --suite codebase-indexing --last 10
+# List last 10 runs for a suite
+ben list --suite codebase-indexing --last 10
+
+# Show one run by id
+ben show 01HX...abc
 ```
 
 ---
@@ -46,12 +49,15 @@ ben query --suite codebase-indexing --last 10
 | Command                         | Description                                           |
 |---------------------------------|-------------------------------------------------------|
 | `ben run`                       | Run benchmark suite or inline task against candidates |
+| `ben list`                      | List recent runs from local storage                   |
+| `ben show <run-id>`             | Show details of one run                               |
 | `ben compare <run-a> <run-b>`   | Diff two run results side-by-side                     |
-| `ben query`                     | Query historical runs from local storage              |
 | `ben suite list`                | List known suites (global + project-local)            |
 | `ben suite show <name>`         | Show suite spec details                               |
 | `ben registry push <run-id>`    | Push a run to the shared registry                     |
 | `ben registry pull`             | Pull community baselines for a suite                  |
+| `ben config path` / `paths`     | Inspect ben config file precedence                    |
+| `ben spec`                      | Emit machine-readable capability manifest             |
 
 ---
 
