@@ -46,10 +46,12 @@ func TestRegistryPush_HappyPath(t *testing.T) {
 
 	cmd := exec.Command(ben, "registry", "push", runID, "--config", cfgPath)
 	cmd.Env = append(os.Environ(), "XDG_DATA_HOME="+dataDir)
-	out, err := cmd.Output()
-	require.NoError(t, err, "ben registry push failed: %s", out)
-	assert.Contains(t, string(out), "pushed")
-	assert.Contains(t, string(out), runID)
+	combined, err := cmd.CombinedOutput()
+	require.NoError(t, err, "ben registry push failed: %s", combined)
+	// Human messages go to stderr (and so to combined output);
+	// the run id is logged on completion.
+	assert.Contains(t, string(combined), "registry push complete")
+	assert.Contains(t, string(combined), runID)
 }
 
 func TestRegistryPull_HappyPath(t *testing.T) {
@@ -88,11 +90,11 @@ func TestRegistryPull_HappyPath(t *testing.T) {
 
 	cmd := exec.Command(ben, "registry", "pull", "--suite", "pull-e2e-suite", "--config", cfgPath)
 	cmd.Env = append(os.Environ(), "XDG_DATA_HOME="+dataDir)
-	out, err := cmd.Output()
-	require.NoError(t, err, "ben registry pull failed: %s", out)
-	s := string(out)
-	assert.Contains(t, s, "pulled")
-	assert.True(t, strings.Contains(s, "pull-e2e-suite") || strings.Contains(s, "1 runs"))
+	combined, err := cmd.CombinedOutput()
+	require.NoError(t, err, "ben registry pull failed: %s", combined)
+	s := string(combined)
+	assert.Contains(t, s, "registry pull complete")
+	assert.True(t, strings.Contains(s, "pull-e2e-suite") || strings.Contains(s, "count=1"))
 }
 
 func TestRegistryPush_NoConfig_ExitsOne(t *testing.T) {

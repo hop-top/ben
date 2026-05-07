@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/spf13/viper"
 	"hop.top/kit/go/console/cli"
 	kitcliconfig "hop.top/kit/go/console/cli/config"
+	kitlog "hop.top/kit/go/console/log"
+	"hop.top/kit/go/console/output"
 	"hop.top/kit/go/core/xdg"
 )
 
@@ -52,6 +55,11 @@ func main() {
 		EnforceValidate: true,
 	})
 
+	// Wire kit's slog-compatible logger as the slog default so every
+	// `slog.Info/Warn/Error/Debug` call across ben respects --quiet,
+	// --no-color, and -V verbosity.
+	slog.SetDefault(slog.New(kitlog.New(root.Viper)))
+
 	// Compose ben's config loader after kit's existing PersistentPreRunE
 	// chain (chdir → identity → peer init).
 	prev := root.Cmd.PersistentPreRunE
@@ -75,6 +83,7 @@ func main() {
 		configCmd(root),
 	)
 
+	registerHints(root)
 	applyCommandGroups(root.Cmd)
 	// Eagerly install cobra's `completion` subcommand so we can stamp
 	// kit annotations on its auto-generated leaves before kit's
@@ -172,6 +181,24 @@ func benConfigResolver(cwd string) []kitcliconfig.ResolvedPath {
 func fileExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir()
+}
+
+// registerHints wires per-command next-step suggestions into kit's
+// hint registry. Hints are emitted after primary output and silenced
+// by --no-hints, --quiet, or non-TTY stdout.
+func registerHints(root *cli.Root) {
+	if root.Hints == nil {
+		return
+	}
+	root.Hints.Register("run", output.Hint{
+		Message: "Use `ben list` to see recent runs, or `ben show <run-id>` for details.",
+	})
+	root.Hints.Register("list", output.Hint{
+		Message: "Use `ben show <run-id>` for details, or `ben compare <a> <b>` to diff two runs.",
+	})
+	root.Hints.Register("registry pull", output.Hint{
+		Message: "Use `ben list` to see what was pulled.",
+	})
 }
 
 // applyCommandGroups assigns each top-level command its GroupID from the

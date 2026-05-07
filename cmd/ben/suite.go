@@ -87,8 +87,7 @@ func suiteShowCmd(v *viper.Viper) *cobra.Command {
 				return err
 			}
 			if s == nil {
-				fmt.Fprintf(os.Stderr, "suite %q not found\n", name)
-				os.Exit(1)
+				return output.NotFoundError(fmt.Sprintf("suite %q not found", name))
 			}
 			format := v.GetString("format")
 			switch format {

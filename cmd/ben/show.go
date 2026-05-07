@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 
@@ -40,6 +42,9 @@ func showRun(ctx context.Context, v *viper.Viper, runID string) error {
 
 	r, err := store.Get(ctx, runID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return output.NotFoundError(fmt.Sprintf("run %q not found", runID))
+		}
 		return fmt.Errorf("load run %q: %w", runID, err)
 	}
 

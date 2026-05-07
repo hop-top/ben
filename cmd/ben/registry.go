@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -95,7 +96,7 @@ func registryPush(ctx context.Context, v *viper.Viper, runID string) error {
 		return fmt.Errorf("mark pushed: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "pushed %s → %s\n", runID, remoteID)
+	slog.Info("registry push complete", "run_id", runID, "remote_id", remoteID)
 	return nil
 }
 
@@ -134,6 +135,6 @@ func registryPull(ctx context.Context, v *viper.Viper, suite string) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, "pulled %d runs for suite %q\n", len(runs), suite)
+	slog.Info("registry pull complete", "suite", suite, "count", len(runs))
 	return nil
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -259,11 +260,11 @@ func runBenchmark(
 	}
 	defer func() { _ = store.Close() }()
 	if err := store.Save(ctx, r); err != nil {
-		// Non-fatal: log to stderr but continue to report.
-		fmt.Fprintf(os.Stderr, "warn: save run: %v\n", err)
+		// Non-fatal: report continues even if persistence failed.
+		slog.Warn("save run", "run_id", r.RunID, "err", err)
 	}
 	if err := store.IndexRun(ctx, r); err != nil {
-		fmt.Fprintf(os.Stderr, "warn: index run: %v\n", err)
+		slog.Warn("index run", "run_id", r.RunID, "err", err)
 	}
 
 	// 8. Report.
