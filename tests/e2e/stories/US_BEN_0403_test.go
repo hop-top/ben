@@ -38,7 +38,7 @@ func TestUS_BEN_0403_ReporterPluginProtocol(t *testing.T) {
 	stubBin := filepath.Join(binDir, stubName)
 
 	// Build the stub binary.
-	buildCmd := exec.Command("go", "build", "-o", stubBin, ".")
+	buildCmd := exec.Command("go", "build", "-buildvcs=false", "-o", stubBin, ".")
 	buildCmd.Dir = stubSrc
 	buildOut, buildErr := buildCmd.CombinedOutput()
 	require.NoError(t, buildErr, "build stub failed: %s", buildOut)

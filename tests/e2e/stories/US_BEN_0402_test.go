@@ -40,7 +40,7 @@ func TestUS_BEN_0402_BinaryAdapterDiscoveryAndProtocol(t *testing.T) {
 	}
 	stubBin := filepath.Join(binDir, stubName)
 
-	buildCmd := exec.Command("go", "build", "-o", stubBin, ".")
+	buildCmd := exec.Command("go", "build", "-buildvcs=false", "-o", stubBin, ".")
 	buildCmd.Dir = echoSrc
 	buildOut, buildErr := buildCmd.CombinedOutput()
 	require.NoError(t, buildErr, "build ben-adapter-stub failed: %s", buildOut)

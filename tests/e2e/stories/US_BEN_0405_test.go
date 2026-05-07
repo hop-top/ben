@@ -46,7 +46,7 @@ func TestUS_BEN_0405_CIPipelineDefinedAndPasses(t *testing.T) {
 	})
 
 	t.Run("go_build_exits_zero", func(t *testing.T) {
-		cmd := exec.Command("go", "build", "./...")
+		cmd := exec.Command("go", "build", "-buildvcs=false", "./...")
 		cmd.Dir = root
 		cmd.Env = os.Environ()
 		out, err := cmd.CombinedOutput()

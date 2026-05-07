@@ -153,7 +153,7 @@ func TestUS_BEN_0406_ConfigDeclaredScorerPlugin(t *testing.T) {
 		require.NoError(t, os.WriteFile(srcPath, []byte(paretoStubSrc), 0o644))
 
 		binPath := filepath.Join(dir, "ben-plugin-pareto-stub")
-		cmd := exec.Command("go", "build", "-o", binPath, srcPath)
+		cmd := exec.Command("go", "build", "-buildvcs=false", "-o", binPath, srcPath)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "scorer stub failed to compile: %s", out)
 
@@ -172,7 +172,7 @@ func TestUS_BEN_0406_ConfigDeclaredScorerPlugin(t *testing.T) {
 		srcPath := filepath.Join(pluginDir, "main.go")
 		require.NoError(t, os.WriteFile(srcPath, []byte(paretoStubSrc), 0o644))
 		stubBin := filepath.Join(pluginDir, "ben-plugin-pareto-stub")
-		cmd := exec.Command("go", "build", "-o", stubBin, srcPath)
+		cmd := exec.Command("go", "build", "-buildvcs=false", "-o", stubBin, srcPath)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "scorer stub failed to compile: %s", out)
 

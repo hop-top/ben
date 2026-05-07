@@ -65,7 +65,7 @@ func TestUS_BEN_0404_TestSuiteGreenOnFirstRun(t *testing.T) {
 	t.Run("go_build", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "go", "build", "./...")
+		cmd := exec.CommandContext(ctx, "go", "build", "-buildvcs=false", "./...")
 		cmd.Dir = repoRoot
 		out, buildErr := cmd.CombinedOutput()
 		require.NoError(t, buildErr, "go build ./... failed:\n%s", out)
