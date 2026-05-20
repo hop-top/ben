@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"hop.top/ben/internal/clierr"
 	"hop.top/ben/internal/run"
 	"hop.top/ben/internal/storage"
 	"hop.top/kit/go/console/output"
@@ -72,14 +73,14 @@ func compareRuns(ctx context.Context, v *viper.Viper, idA, idB string) error {
 	runA, err := store.Get(ctx, idA)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return output.NotFoundError(fmt.Sprintf("run %q not found", idA))
+			return clierr.NoRun(idA)
 		}
 		return fmt.Errorf("load run %s: %w", idA, err)
 	}
 	runB, err := store.Get(ctx, idB)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return output.NotFoundError(fmt.Sprintf("run %q not found", idB))
+			return clierr.NoRun(idB)
 		}
 		return fmt.Errorf("load run %s: %w", idB, err)
 	}
