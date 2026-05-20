@@ -40,7 +40,7 @@ func TestSpecManifest_EveryLeafIsAnnotated(t *testing.T) {
 	var m manifest
 	require.NoError(t, json.Unmarshal(out, &m), "spec output is not valid JSON: %s", out)
 	assert.Equal(t, "ben", m.Tool)
-	assert.Equal(t, "1.0", m.SchemaVersion)
+	assert.Equal(t, "1.1", m.SchemaVersion)
 	require.NotEmpty(t, m.Commands, "manifest should list at least one command")
 
 	validSideEffect := map[string]bool{"read": true, "write": true, "destructive": true, "interactive": true}
@@ -67,7 +67,7 @@ func TestSpecVersion_FastPath(t *testing.T) {
 
 	var v map[string]any
 	require.NoError(t, json.Unmarshal(out, &v))
-	assert.Equal(t, "1.0", v["schema_version"])
+	assert.Equal(t, "1.1", v["schema_version"])
 	// Short-circuit response should not include the commands array.
 	_, hasCommands := v["commands"]
 	assert.False(t, hasCommands, "--version response should omit commands array")

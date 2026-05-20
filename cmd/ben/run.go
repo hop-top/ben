@@ -21,6 +21,7 @@ import (
 	"hop.top/ben/internal/storage"
 	"hop.top/kit/go/console/cli"
 	"hop.top/kit/go/console/output"
+	"hop.top/kit/go/console/progress"
 	"hop.top/kit/go/core/xdg"
 )
 
@@ -39,9 +40,11 @@ func runCmd(v *viper.Viper) *cobra.Command {
 		Short: "Run a benchmark suite or inline task",
 		Long: `Run a benchmark suite or inline task and persist the result.
 
-Each invocation produces a new run with a fresh run-id; runs are not
-deduplicated. To safely retry across restarts, persist run-ids
-client-side or use suite-level metadata to identify duplicates.`,
+Safe retry: this command is annotated kit/idempotent=no (§8.5). Each
+invocation produces a new run with a fresh run-id; runs are not
+deduplicated locally. Callers that need at-most-once semantics across
+restarts should persist run-ids client-side or use suite-level metadata
+to identify duplicates.`,
 		Annotations: map[string]string{
 			"kit/side-effect":    "write",
 			"kit/idempotent":     "no",
@@ -75,10 +78,17 @@ func runBenchmark(
 	scorerStr string,
 	inputKV map[string]string,
 ) error {
+	// progress is selected by kit/cli from --progress-format /
+	// --format (§6.5). Human reporter for TTY, JSONL when
+	// --format json (or explicit --progress-format json), Discard
+	// when --quiet.
+	prog := progress.FromContext(ctx)
+
 	// 0. Discover binary plugins on PATH.
 	registry := plugin.DiscoverAll()
 
 	// 1. Load spec.
+	prog.Emit(ctx, progress.Event{Phase: "load_spec", Item: suitePath})
 	var s *spec.Spec
 	if suitePath != "" && taskDesc != "" {
 		return fmt.Errorf("--suite and --task are mutually exclusive")
@@ -138,7 +148,13 @@ func runBenchmark(
 	// 4. Run each candidate.
 	cliAdapter := adapter.NewCLI()
 	scorerInputs := make([]scorer.CandidateResult, 0, len(s.Candidates))
-	for _, c := range s.Candidates {
+	for i, c := range s.Candidates {
+		prog.Emit(ctx, progress.Event{
+			Phase: "run_candidate",
+			Item:  c.Name,
+			Bytes: int64(i + 1),
+			Total: int64(len(s.Candidates)),
+		})
 		var adpt adapter.Adapter
 		switch c.Adapter {
 		case "cli", "":
@@ -200,6 +216,7 @@ func runBenchmark(
 	}
 
 	// 5. Score.
+	prog.Emit(ctx, progress.Event{Phase: "score", Item: s.Scorer.Strategy})
 	scored := sc.Score(scorerInputs)
 
 	// 6. Build run.Run.
@@ -253,6 +270,7 @@ func runBenchmark(
 	}
 
 	// 7. Persist.
+	prog.Emit(ctx, progress.Event{Phase: "persist", Item: r.RunID})
 	dataDir, err := resolveDataDir()
 	if err != nil {
 		return fmt.Errorf("resolve data dir: %w", err)
@@ -274,6 +292,7 @@ func runBenchmark(
 	}
 
 	// 8. Report.
+	prog.Emit(ctx, progress.Event{Phase: "report", Item: r.RunID})
 	format := v.GetString("format")
 
 	// Check registry for binary reporter plugins before falling back to built-ins.

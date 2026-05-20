@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"hop.top/ben/internal/clierr"
 	"hop.top/ben/internal/registry"
 	"hop.top/ben/internal/storage"
 	"hop.top/kit/go/console/cli"
@@ -34,10 +35,12 @@ func registryPushCmd(v *viper.Viper) *cobra.Command {
 		Short: "Push a local run to the remote registry",
 		Long: `Push a local run to the remote registry.
 
-Idempotent on (run-id, registry-url): re-pushing the same run-id to
-the same registry resolves to the same remote-id without creating a
-duplicate. Pushing the same run-id to two different registries
-produces two distinct remote-ids.`,
+Safe retry: this command is annotated kit/idempotent=conditional
+(§8.5). Pushes are idempotent on (run-id, registry-url): re-pushing
+the same run-id to the same registry resolves to the same remote-id
+without creating a duplicate, so retries are safe under fixed inputs.
+Pushing the same run-id to two different registries produces two
+distinct remote-ids by design.`,
 		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			"kit/side-effect": "write",
@@ -95,7 +98,7 @@ func registryPush(ctx context.Context, v *viper.Viper, runID string) error {
 	r, err := store.Get(ctx, runID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return output.NotFoundError(fmt.Sprintf("run %q not found", runID))
+			return clierr.NoRun(runID)
 		}
 		return fmt.Errorf("load run %q: %w", runID, err)
 	}

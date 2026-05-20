@@ -141,7 +141,7 @@ func queryLast1(t *testing.T, ben, dataDir, suiteName string) []map[string]any {
 		}(),
 	)
 	var rows []map[string]any
-	require.NoError(t, json.Unmarshal(out, &rows),
+	require.NoError(t, json.Unmarshal(unwrapData(t, out), &rows),
 		"ben query output is not a valid JSON array: %s", out)
 	return rows
 }
