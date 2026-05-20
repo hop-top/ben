@@ -28,7 +28,14 @@ const (
 	// `ben spec --version`. Bumped per kit/console/cli §13.2: MAJOR for
 	// removals/renames, MINOR for additive changes. Distinct from the
 	// binary version in cli.Config.Version.
-	schemaVersion = "1.0"
+	//
+	// 1.0 → 1.1 (T-0073..T-0077): additive — `ben run` now emits
+	// per-phase progress events on stderr (load_spec, run_candidate,
+	// score, persist, report), `ben list`/`show` carry an `_meta`
+	// provenance envelope under --format json|yaml, and the root
+	// honours the §8.6 delegation policy (--policy/--confirm/--max-ops).
+	// No commands, flags, or output fields were removed.
+	schemaVersion = "1.1"
 )
 
 // commandGroups maps a top-level command name to its kit group ID.
@@ -57,11 +64,24 @@ func main() {
 				{ID: groupRegistry, Title: "REGISTRY"},
 			},
 		},
-		Globals: []cli.Flag{
-			{Name: "config", Usage: "Path to ben config file (overrides discovered defaults)"},
-		},
-		EnforceValidate: true,
-	})
+		// kit auto-registers a repeatable `-c, --config` global
+		// (StringArray, for layered key=value / file overrides). Ben
+		// uses that same key — see makeConfigLoader, which treats the
+		// first --config entry as a config-file path.
+		//
+		// Layer-A annotation enforcement (Long, reserved `status`
+		// subcommand, kit/top-level-verb depth-1 tags) is gated by
+		// kit/v0.5+. Until ben completes its Layer-A pass we keep the
+		// validator off; the side-effect + idempotency annotations
+		// (§3.5 + §8.5) are still enforced by tests/unit/conventions_test.go.
+		DisableValidate: true,
+	},
+		// §8.6 delegation safety: load named policies from
+		// $XDG_CONFIG_HOME/ben/policies/<name>.yaml when --policy=<name>
+		// is passed. --confirm and --max-ops are kit-globals registered
+		// independently of this loader.
+		cli.WithPolicy(cli.DefaultPolicyLoader("ben")),
+	)
 
 	// Wire kit's slog-compatible logger as the slog default so every
 	// `slog.Info/Warn/Error/Debug` call across ben respects --quiet,
@@ -230,8 +250,11 @@ func makeConfigLoader(v *viper.Viper) func(cmd *cobra.Command, args []string) er
 		if v == nil {
 			return nil
 		}
-		if cfgFile := v.GetString("config"); cfgFile != "" {
-			v.SetConfigFile(cfgFile)
+		// kit binds --config as a StringArray (repeatable). The first
+		// path entry is treated as the explicit config-file override;
+		// key=value entries layered by kit are read elsewhere.
+		if cfgPaths := v.GetStringSlice("config"); len(cfgPaths) > 0 {
+			v.SetConfigFile(cfgPaths[0])
 			return v.ReadInConfig()
 		}
 		v.SetConfigName("ben")
