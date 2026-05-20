@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "go",
+  "include-component-in-tag": true,
+  "separate-pull-requests": false,
+  "packages": {
+    ".": {
+      "component": "ben",
+      "prerelease": true,
+      "prerelease-type": "alpha.0",
+      "versioning": "prerelease",
+      "bump-minor-pre-major": true,
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
