@@ -47,13 +47,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   output (conventions §6.6): `{data: ..., _meta: {source,
   fetched_at, method}}`. Source `ben.local-store`,
   method `sqlite_query`. Table output unchanged
-- Config layering chain finalized — project `./.ben/config.yaml`,
-  user `$XDG_CONFIG_HOME/ben/config.yaml`, system
-  `/etc/ben/config.yaml`. `ben config paths --format json` reports
-  the active chain. `-c <path>` overrides discovery entirely.
-  Caller-context routing (`.hop/ben.yaml` under hop, `.tlc/ben.yaml`
-  under tlc) is wired in once kit ships `root.InvokedAs()` —
-  tracked as T-0091
+- Config layering chain finalized — user
+  `$XDG_CONFIG_HOME/ben/config.yaml`, system `/etc/ben/config.yaml`,
+  and a caller-context-aware project layer driven by `KIT_INVOKED_AS`
+  (kit v0.4.0-alpha.3+, surfaced via `root.InvokedAs()`):
+  `./.ben/config.yaml` standalone, `./.hop/ben.yaml` under hop
+  umbrella, `./.tlc/ben.yaml` under tlc workspace. Only one
+  project-layer entry wins per invocation (kit constraint).
+  `ben config paths --format json` reports the active chain;
+  `-c <path>` overrides discovery entirely
 - Release pipeline: adopted `hop-top/.github` reusable workflows —
   `release-please.yml` (App-token mint via
   `actions/create-github-app-token@v1`), `publish.yml` calling
@@ -77,7 +79,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   structured exit codes (3 NOT_FOUND, 2 USAGE) instead of generic 1.
 - Kit upgrade: imports moved from `hop.top/kit/<pkg>` to
   `hop.top/kit/go/<area>/<pkg>` (kit's March 2026 restructure).
-- `hop.top/kit` dependency pinned to `kit/v0.4.0-alpha.2`; the
+- `hop.top/kit` dependency pinned to `kit/v0.4.0-alpha.3`; the
   local `replace` directive in `go.mod` is removed. Local development
   against unreleased kit revisions uses a commented-out `replace`
   example in `go.mod`.

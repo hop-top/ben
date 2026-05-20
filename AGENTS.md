@@ -113,11 +113,18 @@ Ben's config precedence chain (highest first):
 `exists`/`source`/`scope`. `-c <path>` overrides the chain entirely
 (kit semantics).
 
-Future: when ben is invoked under another hop-top tool (signal:
-`KIT_INVOKED_AS=<tool>`, surfaced via `root.InvokedAs()` in kit
-v0.4.0-alpha.3+), the project layer switches: `.hop/ben.yaml` under
-hop umbrella, `.tlc/ben.yaml` under tlc, `.ben/config.yaml`
-standalone. Wired by T-0091.
+The project layer is caller-context-aware via the `KIT_INVOKED_AS`
+env var (kit v0.4.0-alpha.3+, surfaced via `root.InvokedAs()`):
+
+| `KIT_INVOKED_AS`  | Project config path  |
+|-------------------|----------------------|
+| (unset/standalone)| `./.ben/config.yaml` |
+| `hop`             | `./.hop/ben.yaml`    |
+| `tlc`             | `./.tlc/ben.yaml`    |
+
+Callers (tlc, hop, etc.) export `KIT_INVOKED_AS=<tool>` before
+exec'ing ben. Only one project-layer entry wins per invocation
+(kit constraint). Standalone is the fallback for any unknown value.
 
 ## Versioning
 

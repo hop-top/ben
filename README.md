@@ -20,7 +20,7 @@ for any measurable task: tools, implementations, deps, LLM calls, agents.
 go install hop.top/ben/cmd/ben@latest
 ```
 
-ben depends on `hop.top/kit kit/v0.4.0-alpha.2`, pinned in `go.mod`
+ben depends on `hop.top/kit kit/v0.4.0-alpha.3`, pinned in `go.mod`
 with no local override. Local development against unreleased kit
 revisions uses a `replace` directive in `go.mod` (commented-out
 example near the bottom of the file):
@@ -214,10 +214,18 @@ Ben loads config from three layers, highest precedence first:
 
 Run `ben config paths --format json` to see the active chain. The
 `-c <path>` flag overrides the discovery chain entirely (kit semantics
-— `-c` wins over any previously discovered file). When ben is invoked
-under another hop-top tool, the project-layer path will switch to that
-tool's conventional location (`.hop/ben.yaml` under hop, `.tlc/ben.yaml`
-under tlc) — wired in once kit ships `root.InvokedAs()` (T-0091).
+— `-c` wins over any previously discovered file).
+
+The project-layer path is caller-context-aware via the `KIT_INVOKED_AS`
+env var (exported by callers like tlc or hop before exec'ing ben):
+
+| `KIT_INVOKED_AS`  | Project config path     |
+|-------------------|-------------------------|
+| (unset/standalone)| `./.ben/config.yaml`    |
+| `hop`             | `./.hop/ben.yaml`       |
+| `tlc`             | `./.tlc/ben.yaml`       |
+
+Only one project-layer entry wins per invocation (kit constraint).
 
 ---
 
