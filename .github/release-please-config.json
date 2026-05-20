@@ -4,6 +4,7 @@
   "include-component-in-tag": true,
   "tag-separator": "/",
   "separate-pull-requests": false,
+  "pull-request-title-pattern": "chore(release): ${component} ${version}",
   "packages": {
     ".": {
       "component": "ben",
