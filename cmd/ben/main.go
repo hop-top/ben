@@ -27,7 +27,11 @@ const (
 	// `ben spec --version`. Bumped per kit/console/cli §13.2: MAJOR for
 	// removals/renames, MINOR for additive changes. Distinct from the
 	// binary version in cli.Config.Version.
-	schemaVersion = "1.0"
+	//
+	// 1.0 → 1.1: additive — `ben run` emits per-phase progress events on
+	// stderr; `ben list`/`show` carry an `_meta` provenance envelope under
+	// --format json|yaml; root honours §8.6 delegation policy (cli.WithPolicy).
+	schemaVersion = "1.1"
 )
 
 // version is set by the linker (-X main.version=<tag>) during release
@@ -61,7 +65,14 @@ func main() {
 			},
 		},
 		EnforceValidate: true,
-	}, cli.WithStatus(cli.StatusConfig{}))
+	},
+		cli.WithStatus(cli.StatusConfig{}),
+		// §8.6 delegation safety: load named policies from
+		// $XDG_CONFIG_HOME/ben/policies/<name>.yaml when --policy=<name>
+		// is passed. --confirm and --max-ops are kit-globals registered
+		// independently of this loader.
+		cli.WithPolicy(cli.DefaultPolicyLoader("ben")),
+	)
 
 	// Wire kit's slog-compatible logger as the slog default so every
 	// `slog.Info/Warn/Error/Debug` call across ben respects --quiet,

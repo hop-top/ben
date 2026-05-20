@@ -142,7 +142,7 @@ func TestUS_BEN_0102_RepeatableSuiteYAML(t *testing.T) {
 	}())
 
 	var queryResults []map[string]any
-	require.NoError(t, json.Unmarshal(outQ, &queryResults),
+	require.NoError(t, json.Unmarshal(unwrapData(t, outQ), &queryResults),
 		"query output is not a valid JSON array: %s", outQ)
 
 	require.Len(t, queryResults, 2, "expected 2 query results, got %d", len(queryResults))
