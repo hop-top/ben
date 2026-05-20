@@ -57,7 +57,7 @@ func buildBenForConventions(t *testing.T) string {
 func TestConventions_EveryLeafIsAnnotated(t *testing.T) {
 	ben := buildBenForConventions(t)
 
-	out, err := exec.Command(ben, "spec", "--format", "json").Output()
+	out, err := exec.Command(ben, "spec", "--format", "json").CombinedOutput()
 	require.NoError(t, err, "ben spec failed: %s", out)
 
 	var m benManifest
@@ -96,7 +96,7 @@ func TestConventions_EveryLeafIsAnnotated(t *testing.T) {
 func TestConventions_SchemaVersion_Bumped(t *testing.T) {
 	ben := buildBenForConventions(t)
 
-	out, err := exec.Command(ben, "spec", "--version").Output()
+	out, err := exec.Command(ben, "spec", "--version").CombinedOutput()
 	require.NoError(t, err, "ben spec --version failed: %s", out)
 
 	var v map[string]any
