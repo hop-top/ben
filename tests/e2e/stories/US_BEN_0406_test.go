@@ -274,7 +274,10 @@ metrics:
 scorer:
   strategy: raw
 `
-		// ben.yaml with a plugins block (metrics only — scorer not yet read).
+		// .ben/config.yaml with a plugins block (metrics only — scorer not
+		// yet read). T-0088 moved the project-layer discovery path from
+		// ./ben.yaml to ./.ben/config.yaml; write to the new canonical
+		// location so auto-discovery picks it up.
 		const safePluginsYAML = `
 plugins:
   metrics: []
@@ -282,8 +285,10 @@ plugins:
 		projectDir := t.TempDir()
 		suitePath := filepath.Join(projectDir, "suite.yaml")
 		require.NoError(t, os.WriteFile(suitePath, []byte(safeSuiteYAML), 0o644))
+		benCfgDir := filepath.Join(projectDir, ".ben")
+		require.NoError(t, os.MkdirAll(benCfgDir, 0o755))
 		require.NoError(t, os.WriteFile(
-			filepath.Join(projectDir, "ben.yaml"),
+			filepath.Join(benCfgDir, "config.yaml"),
 			[]byte(safePluginsYAML), 0o644))
 
 		dataDir := t.TempDir()
@@ -292,7 +297,7 @@ plugins:
 		runCmd.Env = append(os.Environ(), "XDG_DATA_HOME="+dataDir)
 		out, err := runCmd.Output()
 		require.NoError(t, err,
-			"ben run must not crash when ben.yaml has a plugins block; stderr: %s",
+			"ben run must not crash when .ben/config.yaml has a plugins block; stderr: %s",
 			func() string {
 				if ee, ok := err.(*exec.ExitError); ok {
 					return string(ee.Stderr)
