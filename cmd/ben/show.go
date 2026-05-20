@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -51,7 +52,15 @@ func showRun(ctx context.Context, v *viper.Viper, runID string) error {
 	format := v.GetString("format")
 	switch format {
 	case output.JSON, output.YAML:
-		return output.Render(os.Stdout, format, r)
+		// §6.6 provenance: same rationale as `ben list` —
+		// the row may have originated locally or via a prior
+		// `registry pull`; either way it's served from cache.
+		meta := output.Metadata{
+			Source:    "ben.local-store",
+			FetchedAt: time.Now().UTC(),
+			Method:    "sqlite_query",
+		}
+		return output.Render(os.Stdout, format, r, output.WithProvenance(meta))
 	default:
 		rep, repErr := reporter.New(output.Table)
 		if repErr != nil {

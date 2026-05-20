@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -62,7 +63,16 @@ func listRuns(ctx context.Context, v *viper.Viper, suiteName string, last int) e
 	if format == "table" || format == "" {
 		return renderListTable(os.Stdout, runs)
 	}
-	return output.Render(os.Stdout, format, runs)
+	// §6.6 provenance: `ben list` reflects locally-persisted runs
+	// (some written by `ben run`, some mirrored from `ben registry
+	// pull`). The local store IS a cache vs. upstream; method is
+	// the read mechanism.
+	meta := output.Metadata{
+		Source:    "ben.local-store",
+		FetchedAt: time.Now().UTC(),
+		Method:    "sqlite_query",
+	}
+	return output.Render(os.Stdout, format, runs, output.WithProvenance(meta))
 }
 
 func renderListTable(w *os.File, runs []*run.Run) error {
