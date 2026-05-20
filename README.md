@@ -20,6 +20,17 @@ for any measurable task: tools, implementations, deps, LLM calls, agents.
 go install hop.top/ben/cmd/ben@latest
 ```
 
+ben depends on `hop.top/kit kit/v0.4.0-alpha.3`, pinned in `go.mod`
+with no local override. Local development against unreleased kit
+revisions uses a `replace` directive in `go.mod` (commented-out
+example near the bottom of the file):
+
+```go
+// replace hop.top/kit => ../kit
+```
+
+Uncomment, point at your kit checkout, and `go mod tidy`.
+
 ---
 
 ## Quick start
@@ -188,6 +199,61 @@ Project-local (detected automatically when `.ben/` exists in cwd):
 ```
 
 Ben prefers project-local storage when `.ben/` is present; falls back to global.
+
+---
+
+## Configuration
+
+Ben loads config from three layers, highest precedence first:
+
+| Layer   | Path                              |
+|---------|-----------------------------------|
+| project | `./.ben/config.yaml`              |
+| user    | `$XDG_CONFIG_HOME/ben/config.yaml`|
+| system  | `/etc/ben/config.yaml`            |
+
+Run `ben config paths --format json` to see the active chain. The
+`-c <path>` flag overrides the discovery chain entirely (kit semantics
+— `-c` wins over any previously discovered file).
+
+The project-layer path is caller-context-aware via the `KIT_INVOKED_AS`
+env var (exported by callers like tlc or hop before exec'ing ben):
+
+| `KIT_INVOKED_AS`  | Project config path     |
+|-------------------|-------------------------|
+| (unset/standalone)| `./.ben/config.yaml`    |
+| `hop`             | `./.hop/ben.yaml`       |
+| `tlc`             | `./.tlc/ben.yaml`       |
+
+Only one project-layer entry wins per invocation (kit constraint).
+
+---
+
+## Release process
+
+Release pipeline mirrors the `hop-top/.github` reusable workflows:
+
+- `release-please.yml` watches `main`, opens a standing release PR
+  that bumps the version + assembles the changelog.
+- Merging that PR cuts a `ben/v<version>` tag.
+- The tag push fires `publish.yml` (Go module mirror to
+  `hop-top/ben`) and `goreleaser-on-tag.yml` (cross-platform binaries
+  + Homebrew tap + Scoop bucket entries) in parallel.
+
+Prerelease channel is seeded at `0.2.0-alpha.0`. See
+[`.github/RELEASE-BOOTSTRAP.md`](.github/RELEASE-BOOTSTRAP.md) for
+the manual web-side steps (mirror-repo creation, GitHub App
+installation, org secrets) required before the first cut.
+
+---
+
+## Troubleshooting
+
+**`compile: version "go1.26.1" does not match go tool version "go1.26.2"`**
+
+Cause: stale `GOROOT` exported from an earlier `mise` shell. Quick
+workaround: `env -u GOROOT go test ./...`. Long-term fix: `mise use
+go@<latest>` and respawn the shell.
 
 ---
 

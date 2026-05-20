@@ -15,23 +15,57 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - `ben show <run-id>` — fetch a single run by id
 - `ben config path` / `ben config paths` — inspect config file precedence
   chain (project → user → system) provided by kit/console/cli/config
+  (conventions §7.4)
 - `ben spec` / `ben spec --version` — emit machine-readable capability
   manifest per kit conventions §13; agents use this for compatibility
   negotiation before issuing other commands
 - `--dry-run` on `run`, `registry push`, `registry pull` — emits a
   structured Plan describing intended effects without applying them
 - Side-effect (`kit/side-effect`) and idempotency (`kit/idempotent`)
-  annotations on every leaf command; available via `ben spec`
+  annotations on every one of the 11 leaf commands per conventions
+  §3.5 (read|write|destructive|interactive) and §8.5
+  (yes|no|conditional); available via `ben spec`. Trip-wire test at
+  `tests/unit/conventions_test.go` enforces both invariants
 - `--confirm`, `--max-ops`, `--policy` global flags wired by kit for
-  agent-driven invocations (delegation safety, conventions §8.6)
+  agent-driven invocations (delegation safety, conventions §8.6).
+  Policies load from `$XDG_CONFIG_HOME/ben/policies/<name>.yaml` via
+  `cli.WithPolicy(cli.DefaultPolicyLoader("ben"))`
 - Group taxonomy in `--help`: EXECUTE, RESULTS, CATALOG, REGISTRY;
   MANAGEMENT (config, spec, completion) auto-hidden
 - Hints after successful commands (silenced by `--no-hints` or
   non-TTY)
-- Structured JSON error envelope (`code`/`message`/`exit_code`) under
-  `--format json|yaml`
-- Config layering picks up `$XDG_CONFIG_HOME/ben/ben.yaml` and
-  `/etc/ben/ben.yaml` in addition to project-local files
+- Structured JSON error envelope under `--format json|yaml`
+  (conventions §6.4): `{error: {code, message, suggested_fix,
+  alternatives, exit_code}}`. Ben-specific codes
+  `BEN_NO_RUN` / `BEN_NO_SUITE` (exit 3 NOT_FOUND family) live in
+  `internal/clierr` alongside kit's generic codes
+- JSONL progress events on stderr for `ben run` (conventions §6.5):
+  five phases `load_spec`, `run_candidate`, `score`, `persist`,
+  `report`. Render selection via `--quiet` / `--progress-format` /
+  `--format json` (auto-JSONL) / human default
+- `_meta` provenance envelope on `ben list` + `ben show` JSON/YAML
+  output (conventions §6.6): `{data: ..., _meta: {source,
+  fetched_at, method}}`. Source `ben.local-store`,
+  method `sqlite_query`. Table output unchanged
+- Config layering chain finalized — user
+  `$XDG_CONFIG_HOME/ben/config.yaml`, system `/etc/ben/config.yaml`,
+  and a caller-context-aware project layer driven by `KIT_INVOKED_AS`
+  (kit v0.4.0-alpha.3+, surfaced via `root.InvokedAs()`):
+  `./.ben/config.yaml` standalone, `./.hop/ben.yaml` under hop
+  umbrella, `./.tlc/ben.yaml` under tlc workspace. Only one
+  project-layer entry wins per invocation (kit constraint).
+  `ben config paths --format json` reports the active chain;
+  `-c <path>` overrides discovery entirely
+- Release pipeline: adopted `hop-top/.github` reusable workflows —
+  `release-please.yml` (App-token mint via
+  `actions/create-github-app-token@v1`), `publish.yml` calling
+  `publish-on-tag.yml@v0`, `goreleaser-on-tag.yml@v0` paired with
+  `.goreleaser.yaml`. Tag shape `ben/v<version>` (enforced via
+  `tag-separator: /` in release-please-config). Prerelease channel
+  seeded at `0.2.0-alpha.0` in `.github/.release-please-manifest.json`.
+  Manual web-side steps tracked in `.github/RELEASE-BOOTSTRAP.md`
+- `var version = "dev"` at `cmd/ben/main.go` package scope; goreleaser
+  injects the release tag via `-X main.version=<tag>` ldflag
 
 ### Changed
 
@@ -45,6 +79,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   structured exit codes (3 NOT_FOUND, 2 USAGE) instead of generic 1.
 - Kit upgrade: imports moved from `hop.top/kit/<pkg>` to
   `hop.top/kit/go/<area>/<pkg>` (kit's March 2026 restructure).
+- `hop.top/kit` dependency pinned to `kit/v0.4.0-alpha.3`; the
+  local `replace` directive in `go.mod` is removed. Local development
+  against unreleased kit revisions uses a commented-out `replace`
+  example in `go.mod`.
+- `schemaVersion` bumped `1.0` → `1.1` (additive per conventions
+  §13.2 MINOR rule — progress events, `_meta` envelope, policy flags;
+  no commands or fields removed).
 
 ### Fixed
 
