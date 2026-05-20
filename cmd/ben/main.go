@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	speccli "hop.top/kit/go/ai/toolspec/cli"
 	"hop.top/kit/go/console/cli"
 	kitcliconfig "hop.top/kit/go/console/cli/config"
@@ -57,11 +56,8 @@ func main() {
 				{ID: groupRegistry, Title: "REGISTRY"},
 			},
 		},
-		Globals: []cli.Flag{
-			{Name: "config", Usage: "Path to ben config file (overrides discovered defaults)"},
-		},
 		EnforceValidate: true,
-	})
+	}, cli.WithStatus(cli.StatusConfig{}))
 
 	// Wire kit's slog-compatible logger as the slog default so every
 	// `slog.Info/Warn/Error/Debug` call across ben respects --quiet,
@@ -71,7 +67,7 @@ func main() {
 	// Compose ben's config loader after kit's existing PersistentPreRunE
 	// chain (chdir → identity → peer init).
 	prev := root.Cmd.PersistentPreRunE
-	loader := makeConfigLoader(root.Viper)
+	loader := makeConfigLoader(root)
 	root.Cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if prev != nil {
 			if err := prev(cmd, args); err != nil {
@@ -222,27 +218,49 @@ func applyCommandGroups(rootCmd *cobra.Command) {
 }
 
 // makeConfigLoader returns a PreRunE that loads a ben.yaml config file
-// into v. It honours --config when set; otherwise discovers default
-// locations: project (.ben.yaml or .ben/ben.yaml) → user
-// ($XDG_CONFIG_HOME/ben/ben.yaml) → system (/etc/ben/ben.yaml).
-func makeConfigLoader(v *viper.Viper) func(cmd *cobra.Command, args []string) error {
+// into v. It honours kit's -c/--config global (StringArray): bare-path
+// tokens layer extra config files on top of discovered defaults;
+// key=value tokens apply scalar overrides. When no -c paths are given
+// it discovers default locations: project (.ben.yaml or .ben/ben.yaml) →
+// user ($XDG_CONFIG_HOME/ben/ben.yaml) → system (/etc/ben/ben.yaml).
+func makeConfigLoader(root *cli.Root) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if v == nil {
+		if root == nil || root.Viper == nil {
 			return nil
 		}
-		if cfgFile := v.GetString("config"); cfgFile != "" {
-			v.SetConfigFile(cfgFile)
-			return v.ReadInConfig()
+		v := root.Viper
+		paths, overrides, err := root.ConfigArgs()
+		if err != nil {
+			return err
 		}
-		v.SetConfigName("ben")
-		v.SetConfigType("yaml")
-		v.AddConfigPath(".")
-		v.AddConfigPath(".ben")
-		if dir, err := xdg.ConfigDir("ben"); err == nil {
-			v.AddConfigPath(dir)
+		if len(paths) > 0 {
+			// -c <path> tokens: use the first as the primary config file
+			// and merge any additional ones on top.
+			v.SetConfigFile(paths[0])
+			if err := v.ReadInConfig(); err != nil {
+				return err
+			}
+			for _, extra := range paths[1:] {
+				v.SetConfigFile(extra)
+				if err := v.MergeInConfig(); err != nil {
+					return err
+				}
+			}
+		} else {
+			v.SetConfigName("ben")
+			v.SetConfigType("yaml")
+			v.AddConfigPath(".")
+			v.AddConfigPath(".ben")
+			if dir, err := xdg.ConfigDir("ben"); err == nil {
+				v.AddConfigPath(dir)
+			}
+			v.AddConfigPath("/etc/ben")
+			_ = v.ReadInConfig() // missing config is not an error
 		}
-		v.AddConfigPath("/etc/ben")
-		_ = v.ReadInConfig() // missing config is not an error
+		// Apply key=value overrides on top of any loaded file(s).
+		for k, val := range overrides {
+			v.Set(k, val)
+		}
 		return nil
 	}
 }
