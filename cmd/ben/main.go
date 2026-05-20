@@ -31,6 +31,10 @@ const (
 	schemaVersion = "1.0"
 )
 
+// version is set by the linker (-X main.version=<tag>) during release
+// builds. Defaults to "dev" for local builds.
+var version = "dev"
+
 // commandGroups maps a top-level command name to its kit group ID.
 // MANAGEMENT (config, version, upgrade, completion) is handled by kit.
 var commandGroups = map[string]string{
@@ -47,7 +51,7 @@ var commandGroups = map[string]string{
 func main() {
 	root := cli.New(cli.Config{
 		Name:    "ben",
-		Version: "0.1.0",
+		Version: version,
 		Short:   "benchmarking tool — answers 'which approach is better, and by how much?'",
 		Help: cli.HelpConfig{
 			Groups: []cli.GroupConfig{
