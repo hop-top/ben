@@ -130,7 +130,7 @@ func annotateUnannotatedLeaves(root *cobra.Command) {
 // configCmd is the parent `ben config` command. kit/cli/config provides
 // `path` and `paths` subcommands; ben supplies the resolver that walks
 // the precedence chain.
-func configCmd(_ *cli.Root) *cobra.Command {
+func configCmd(root *cli.Root) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Inspect ben configuration",
@@ -140,52 +140,76 @@ func configCmd(_ *cli.Root) *cobra.Command {
 			"kit/idempotent":  "yes",
 		},
 	}
-	kitcliconfig.RegisterPathSubcommands(cmd, "ben", kitcliconfig.WithResolver(benConfigResolver))
+	kitcliconfig.RegisterPathSubcommands(cmd, "ben",
+		kitcliconfig.WithResolver(benConfigResolver(root)))
 	return cmd
 }
 
-// benConfigResolver returns ben's config precedence chain (highest first):
-// project → user → system. The --config flag short-circuits this chain
-// at runtime; kit's `config path` reports the highest existing entry.
+// projectConfigPath returns the project-layer config path based on the
+// caller-context signal (KIT_INVOKED_AS surfaced via root.InvokedAs()):
 //
-// TODO(after kit/v0.4.0-alpha.3, T-0091): switch project-layer path based
-// on root.InvokedAs() — ".hop/ben.yaml" under hop umbrella, ".tlc/ben.yaml"
-// under tlc, ".ben/config.yaml" standalone. Only one wins per invocation;
-// kit does not allow multiple project-layer configs.
-func benConfigResolver(cwd string) []kitcliconfig.ResolvedPath {
-	out := []kitcliconfig.ResolvedPath{}
+//	invokedAs == "hop" → cwd/.hop/ben.yaml      (under hop umbrella)
+//	invokedAs == "tlc" → cwd/.tlc/ben.yaml      (under tlc workspace)
+//	otherwise          → cwd/.ben/config.yaml   (standalone)
+//
+// Only one wins per invocation — kit does not allow multiple project-
+// layer configs. Callers (tlc/hop/etc.) export KIT_INVOKED_AS before
+// exec'ing ben.
+func projectConfigPath(cwd, invokedAs string) string {
+	switch invokedAs {
+	case "hop":
+		return filepath.Join(cwd, ".hop", "ben.yaml")
+	case "tlc":
+		return filepath.Join(cwd, ".tlc", "ben.yaml")
+	default:
+		return filepath.Join(cwd, ".ben", "config.yaml")
+	}
+}
 
-	// Project layer (standalone). See TODO above for caller-context paths.
-	{
-		p := filepath.Join(cwd, ".ben", "config.yaml")
+// benConfigResolver returns a kit Resolver that walks ben's config
+// precedence chain (highest first): project → user → system. The
+// project-layer path is chosen by projectConfigPath based on
+// root.InvokedAs() (KIT_INVOKED_AS env var, exported by callers like
+// tlc/hop). The --config flag short-circuits this chain at runtime;
+// kit's `config path` reports the highest existing entry.
+func benConfigResolver(root *cli.Root) kitcliconfig.Resolver {
+	return func(cwd string) []kitcliconfig.ResolvedPath {
+		var invokedAs string
+		if root != nil {
+			invokedAs = root.InvokedAs()
+		}
+		out := []kitcliconfig.ResolvedPath{}
+
+		// Project layer (caller-context-aware).
+		p := projectConfigPath(cwd, invokedAs)
 		out = append(out, kitcliconfig.ResolvedPath{
 			Path:   p,
 			Source: "file",
 			Scope:  "project",
 			Exists: fileExists(p),
 		})
-	}
 
-	// User layer.
-	if dir, err := xdg.ConfigDir("ben"); err == nil {
-		p := filepath.Join(dir, "config.yaml")
+		// User layer.
+		if dir, err := xdg.ConfigDir("ben"); err == nil {
+			p := filepath.Join(dir, "config.yaml")
+			out = append(out, kitcliconfig.ResolvedPath{
+				Path:   p,
+				Source: "file",
+				Scope:  "user",
+				Exists: fileExists(p),
+			})
+		}
+
+		// System layer.
 		out = append(out, kitcliconfig.ResolvedPath{
-			Path:   p,
+			Path:   "/etc/ben/config.yaml",
 			Source: "file",
-			Scope:  "user",
-			Exists: fileExists(p),
+			Scope:  "system",
+			Exists: fileExists("/etc/ben/config.yaml"),
 		})
+
+		return out
 	}
-
-	// System layer.
-	out = append(out, kitcliconfig.ResolvedPath{
-		Path:   "/etc/ben/config.yaml",
-		Source: "file",
-		Scope:  "system",
-		Exists: fileExists("/etc/ben/config.yaml"),
-	})
-
-	return out
 }
 
 func fileExists(p string) bool {
@@ -227,15 +251,16 @@ func applyCommandGroups(rootCmd *cobra.Command) {
 // OVERRIDE the discovery chain when supplied (kit semantics — -c wins over
 // any previously discovered file); key=value tokens apply scalar overrides
 // on top of whatever file layer was loaded. When no -c paths are given it
-// discovers default locations in precedence order (highest first):
+// discovers default locations in precedence order (lowest first, highest
+// merged last):
 //
-//	project ./.ben/config.yaml
-//	user    $XDG_CONFIG_HOME/ben/config.yaml
 //	system  /etc/ben/config.yaml
+//	user    $XDG_CONFIG_HOME/ben/config.yaml
+//	project <projectConfigPath(cwd, root.InvokedAs())>
 //
-// TODO(after kit/v0.4.0-alpha.3, T-0091): switch project-layer path based
-// on root.InvokedAs() — ".hop/ben.yaml" under hop umbrella, ".tlc/ben.yaml"
-// under tlc, ".ben/config.yaml" standalone. Only one wins per invocation.
+// The project layer is caller-context-aware: ".hop/ben.yaml" under hop
+// umbrella, ".tlc/ben.yaml" under tlc, ".ben/config.yaml" standalone.
+// See projectConfigPath.
 func makeConfigLoader(root *cli.Root) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if root == nil || root.Viper == nil {
@@ -268,7 +293,10 @@ func makeConfigLoader(root *cli.Root) func(cmd *cobra.Command, args []string) er
 			if dir, derr := xdg.ConfigDir("ben"); derr == nil {
 				candidates = append(candidates, filepath.Join(dir, "config.yaml"))
 			}
-			candidates = append(candidates, filepath.Join(".ben", "config.yaml"))
+			cwd, cwdErr := os.Getwd()
+			if cwdErr == nil {
+				candidates = append(candidates, projectConfigPath(cwd, root.InvokedAs()))
+			}
 
 			loaded := false
 			for _, p := range candidates {
