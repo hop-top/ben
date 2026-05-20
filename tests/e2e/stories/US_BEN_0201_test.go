@@ -22,8 +22,11 @@ func TestUS_BEN_0201_InstallFirstBenchmark(t *testing.T) {
 		dataDir := t.TempDir()
 
 		// Use name=adapter=cmd form; two candidates: "echo a" and "echo b".
+		// --quiet silences kit's per-phase progress events (§6.5) so we
+		// can keep the strict "stderr is empty" acceptance criterion.
 		cmd := exec.Command(ben,
 			"run",
+			"--quiet",
 			"--task", "echo hello",
 			"--candidates", "echo a=cli=echo a,echo b=cli=echo b",
 			"--metric", "latency_ms",
@@ -40,7 +43,7 @@ func TestUS_BEN_0201_InstallFirstBenchmark(t *testing.T) {
 		// AC: exits 0
 		require.NoError(t, err, "ben run exited non-zero; stderr: %s", stderr.String())
 
-		// AC: stderr is empty on happy path
+		// AC: stderr is empty on happy path (with --quiet to silence progress events)
 		assert.Empty(t, stderr.String(), "unexpected stderr output")
 
 		out := stdout.String()
@@ -76,8 +79,11 @@ func TestUS_BEN_0201_InstallFirstBenchmark(t *testing.T) {
 	t.Run("json_format_winner_non_empty", func(t *testing.T) {
 		dataDir := t.TempDir()
 
+		// --quiet silences kit's per-phase progress events on stderr
+		// (§6.5) so the strict "empty stderr" assertion still holds.
 		cmd := exec.Command(ben,
 			"run",
+			"--quiet",
 			"--task", "echo hello",
 			"--candidates", "echo a=cli=echo a,echo b=cli=echo b",
 			"--metric", "latency_ms",
@@ -92,7 +98,7 @@ func TestUS_BEN_0201_InstallFirstBenchmark(t *testing.T) {
 		out, err := cmd.Output()
 		require.NoError(t, err, "ben run --format json exited non-zero; stderr: %s", stderr.String())
 
-		// AC: stderr is empty on happy path
+		// AC: stderr is empty on happy path (with --quiet to silence progress events)
 		assert.Empty(t, stderr.String(), "unexpected stderr output")
 
 		var result map[string]any
