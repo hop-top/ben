@@ -1,0 +1,66 @@
+version: 2
+project_name: ben
+
+builds:
+  - id: ben
+    main: ./cmd/ben
+    binary: ben
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath, -buildvcs=false]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: ben
+    ids: [ben]
+    name_template: "ben_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  # release-please already authors the changelog; don't duplicate.
+  disable: true
+
+release:
+  # The reusable workflow handles uploading dist/* to the real
+  # release-please-created release. GoReleaser OSS can't target
+  # a different tag name on its own (release.tag: is Pro-only).
+  disable: true
+
+brews:
+  - name: ben
+    repository:
+      owner: hop-top
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/hop-top/ben
+    description: "ben — benchmark and registry tooling for hop.top"
+    license: MIT
+    # {{ .Env.RELEASE_TAG }} is the literal `ben/v<version>` tag,
+    # which is the path segment GitHub Releases use for asset
+    # downloads. {{.Tag}} here would resolve to the synthesized
+    # bare tag — wrong for the URL.
+    url_template: "https://github.com/hop-top/ben/releases/download/{{ .Env.RELEASE_TAG }}/{{ .ArtifactName }}"
+    install: bin.install "ben"
+    test: |
+      system "#{bin}/ben", "--version"
+
+scoops:
+  - name: ben
+    repository:
+      owner: hop-top
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    homepage: https://github.com/hop-top/ben
+    description: "ben — benchmark and registry tooling for hop.top"
+    license: MIT
+    # Same RELEASE_TAG reasoning as brews above.
+    url_template: "https://github.com/hop-top/ben/releases/download/{{ .Env.RELEASE_TAG }}/{{ .ArtifactName }}"
