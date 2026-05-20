@@ -47,15 +47,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   output (conventions §6.6): `{data: ..., _meta: {source,
   fetched_at, method}}`. Source `ben.local-store`,
   method `sqlite_query`. Table output unchanged
-- Config layering picks up `$XDG_CONFIG_HOME/ben/ben.yaml` and
-  `/etc/ben/ben.yaml` in addition to project-local files
+- Config layering chain finalized — project `./.ben/config.yaml`,
+  user `$XDG_CONFIG_HOME/ben/config.yaml`, system
+  `/etc/ben/config.yaml`. `ben config paths --format json` reports
+  the active chain. `-c <path>` overrides discovery entirely.
+  Caller-context routing (`.hop/ben.yaml` under hop, `.tlc/ben.yaml`
+  under tlc) is wired in once kit ships `root.InvokedAs()` —
+  tracked as T-0091
 - Release pipeline: adopted `hop-top/.github` reusable workflows —
   `release-please.yml` (App-token mint via
   `actions/create-github-app-token@v1`), `publish.yml` calling
   `publish-on-tag.yml@v0`, `goreleaser-on-tag.yml@v0` paired with
-  `.goreleaser.yaml`. Tag shape `ben/v<version>`. Prerelease channel
+  `.goreleaser.yaml`. Tag shape `ben/v<version>` (enforced via
+  `tag-separator: /` in release-please-config). Prerelease channel
   seeded at `0.2.0-alpha.0` in `.github/.release-please-manifest.json`.
   Manual web-side steps tracked in `.github/RELEASE-BOOTSTRAP.md`
+- `var version = "dev"` at `cmd/ben/main.go` package scope; goreleaser
+  injects the release tag via `-X main.version=<tag>` ldflag
 
 ### Changed
 

@@ -202,6 +202,25 @@ Ben prefers project-local storage when `.ben/` is present; falls back to global.
 
 ---
 
+## Configuration
+
+Ben loads config from three layers, highest precedence first:
+
+| Layer   | Path                              |
+|---------|-----------------------------------|
+| project | `./.ben/config.yaml`              |
+| user    | `$XDG_CONFIG_HOME/ben/config.yaml`|
+| system  | `/etc/ben/config.yaml`            |
+
+Run `ben config paths --format json` to see the active chain. The
+`-c <path>` flag overrides the discovery chain entirely (kit semantics
+— `-c` wins over any previously discovered file). When ben is invoked
+under another hop-top tool, the project-layer path will switch to that
+tool's conventional location (`.hop/ben.yaml` under hop, `.tlc/ben.yaml`
+under tlc) — wired in once kit ships `root.InvokedAs()` (T-0091).
+
+---
+
 ## Release process
 
 Release pipeline mirrors the `hop-top/.github` reusable workflows:

@@ -99,6 +99,34 @@ from `ben registry pull`; either way they're served out of the
 SQLite store, which is what `source` advertises. Table output is
 unchanged.
 
+## Config paths
+
+Ben's config precedence chain (highest first):
+
+| Scope   | Path                              |
+|---------|-----------------------------------|
+| project | `./.ben/config.yaml`              |
+| user    | `$XDG_CONFIG_HOME/ben/config.yaml`|
+| system  | `/etc/ben/config.yaml`            |
+
+`ben config paths --format json` prints the chain with per-entry
+`exists`/`source`/`scope`. `-c <path>` overrides the chain entirely
+(kit semantics).
+
+Future: when ben is invoked under another hop-top tool (signal:
+`KIT_INVOKED_AS=<tool>`, surfaced via `root.InvokedAs()` in kit
+v0.4.0-alpha.3+), the project layer switches: `.hop/ben.yaml` under
+hop umbrella, `.tlc/ben.yaml` under tlc, `.ben/config.yaml`
+standalone. Wired by T-0091.
+
+## Versioning
+
+`ben --version` prints the value of `var version` in `cmd/ben/main.go`,
+defaulted to `"dev"` for local builds. Release builds inject the tag
+via `-X main.version=<tag>` ldflag from goreleaser. Agents that depend
+on a specific ben version can capability-negotiate via
+`ben spec --version` (returns the schemaVersion, currently `1.1`).
+
 ## Delegation safety (§8.6)
 
 Three global flags control agent-driven invocations:
