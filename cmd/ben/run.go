@@ -40,9 +40,11 @@ func runCmd(v *viper.Viper) *cobra.Command {
 		Short: "Run a benchmark suite or inline task",
 		Long: `Run a benchmark suite or inline task and persist the result.
 
-Each invocation produces a new run with a fresh run-id; runs are not
-deduplicated. To safely retry across restarts, persist run-ids
-client-side or use suite-level metadata to identify duplicates.`,
+Safe retry: this command is annotated kit/idempotent=no (§8.5). Each
+invocation produces a new run with a fresh run-id; runs are not
+deduplicated server-side. Callers that need at-most-once semantics
+across restarts should persist run-ids client-side or use suite-level
+metadata to identify duplicates.`,
 		Annotations: map[string]string{
 			"kit/side-effect": "write",
 			"kit/idempotent":  "no",

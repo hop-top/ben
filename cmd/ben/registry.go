@@ -34,10 +34,12 @@ func registryPushCmd(v *viper.Viper) *cobra.Command {
 		Short: "Push a local run to the remote registry",
 		Long: `Push a local run to the remote registry.
 
-Idempotent on (run-id, registry-url): re-pushing the same run-id to
-the same registry resolves to the same remote-id without creating a
-duplicate. Pushing the same run-id to two different registries
-produces two distinct remote-ids.`,
+Safe retry: this command is annotated kit/idempotent=conditional
+(§8.5). Pushes are idempotent on (run-id, registry-url): re-pushing
+the same run-id to the same registry resolves to the same remote-id
+without creating a duplicate, so retries are safe under fixed inputs.
+Pushing the same run-id to two different registries produces two
+distinct remote-ids by design.`,
 		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			"kit/side-effect": "write",
