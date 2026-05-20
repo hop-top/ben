@@ -20,10 +20,13 @@ func showCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <run-id>",
 		Short: "Show details of a single run by id",
-		Args:  cobra.ExactArgs(1),
+		Long: "Show the full record for a single benchmark run, " +
+			"including per-candidate scores and metadata.",
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
-			"kit/side-effect": "read",
-			"kit/idempotent":  "yes",
+			"kit/side-effect":    "read",
+			"kit/idempotent":     "yes",
+			"kit/top-level-verb": "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return showRun(cmd.Context(), v, args[0])

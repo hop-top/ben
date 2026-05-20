@@ -30,9 +30,12 @@ func listCmd(v *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent benchmark runs",
+		Long: "List the most recent benchmark runs from the local store, " +
+			"optionally filtered by suite name. Use --last to bound the count.",
 		Annotations: map[string]string{
-			"kit/side-effect": "read",
-			"kit/idempotent":  "yes",
+			"kit/side-effect":     "read",
+			"kit/idempotent":      "yes",
+			"kit/top-level-verb":  "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return listRuns(cmd.Context(), v, suiteName, last)

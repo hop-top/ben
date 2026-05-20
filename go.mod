@@ -7,7 +7,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
-	hop.top/kit v0.0.0
+	hop.top/kit v0.4.0-alpha.3
 )
 
 require (
@@ -83,5 +83,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.48.2 // indirect
 )
-
-replace hop.top/kit => /Users/jadb/.w/ideacrafterslabs/kit/hops/main

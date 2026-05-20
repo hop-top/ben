@@ -69,7 +69,9 @@ func TestLLM_AnthropicSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, r.ExitCode)
 	assert.NotEmpty(t, r.Output)
-	assert.Greater(t, r.DurationMs, int64(0))
+	// Sub-millisecond runs truncate to 0 on fast runners; the adapter
+	// contract is non-negative, not strictly positive.
+	assert.GreaterOrEqual(t, r.DurationMs, int64(0))
 	require.NotNil(t, r.Metadata)
 	assert.Equal(t, 10, r.Metadata["input_tokens"])
 }
