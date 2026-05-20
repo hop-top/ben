@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,7 +96,7 @@ func TestUS_BEN_0103_QueryLastNRuns(t *testing.T) {
 		require.NoError(t, err, "ben query exited non-zero: stderr=%s stdout=%s", stderr, stdout)
 
 		var runs []map[string]any
-		require.NoError(t, json.Unmarshal(stdout, &runs), "stdout not a JSON array: %s", stdout)
+		require.NoError(t, json.Unmarshal(unwrapData(t, stdout), &runs), "stdout not a JSON array: %s", stdout)
 		require.Len(t, runs, 3, "expected exactly 3 results")
 
 		// AC2: timestamps must be newest-first.
@@ -127,7 +128,7 @@ func TestUS_BEN_0103_QueryLastNRuns(t *testing.T) {
 		require.NoError(t, err, "ben query exited non-zero: stderr=%s stdout=%s", stderr, stdout)
 
 		var runs []map[string]any
-		require.NoError(t, json.Unmarshal(stdout, &runs), "stdout not a JSON array: %s", stdout)
+		require.NoError(t, json.Unmarshal(unwrapData(t, stdout), &runs), "stdout not a JSON array: %s", stdout)
 		require.Len(t, runs, 1)
 		assertRunFields(t, 0, runs[0])
 
@@ -147,9 +148,11 @@ func TestUS_BEN_0103_QueryLastNRuns(t *testing.T) {
 
 		// Expect either `[]` or `null` (current behaviour returns null for empty;
 		// both satisfy AC5 "exit 0 with empty array" — the key is exit code 0).
-		trimmed := string(stdout)
+		// kit's provenance envelope wraps the body as {"data": ..., "_meta": ...},
+		// so we unwrap data before checking the shape.
+		trimmed := strings.TrimSpace(string(unwrapData(t, stdout)))
 		assert.True(t,
-			trimmed == "[]\n" || trimmed == "null\n" || trimmed == "[]" || trimmed == "null",
+			trimmed == "[]" || trimmed == "null",
 			"expected empty/null result for unknown suite, got: %s", trimmed,
 		)
 	})
