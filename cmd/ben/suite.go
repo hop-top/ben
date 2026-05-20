@@ -36,6 +36,8 @@ func suiteListCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all known benchmark suites",
+		Long: "List every benchmark suite discoverable in the configured " +
+			"suite directories. Names are deduped and sorted.",
 		Annotations: map[string]string{
 			"kit/side-effect": "read",
 			"kit/idempotent":  "yes",
@@ -71,7 +73,9 @@ func suiteShowCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <name>",
 		Short: "Show details of a benchmark suite",
-		Args:  cobra.ExactArgs(1),
+		Long: "Show the full specification of a single suite, including " +
+			"candidates, metrics, and scorer configuration.",
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			"kit/side-effect": "read",
 			"kit/idempotent":  "yes",
