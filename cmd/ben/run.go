@@ -43,8 +43,9 @@ Each invocation produces a new run with a fresh run-id; runs are not
 deduplicated. To safely retry across restarts, persist run-ids
 client-side or use suite-level metadata to identify duplicates.`,
 		Annotations: map[string]string{
-			"kit/side-effect": "write",
-			"kit/idempotent":  "no",
+			"kit/side-effect":    "write",
+			"kit/idempotent":     "no",
+			"kit/top-level-verb": "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cli.IsDryRun(cmd) {

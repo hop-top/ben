@@ -44,10 +44,13 @@ func compareCmd(v *viper.Viper) *cobra.Command {
 	return &cobra.Command{
 		Use:   "compare <run-a> <run-b>",
 		Short: "Compare two runs side-by-side",
-		Args:  cobra.ExactArgs(2),
+		Long: "Compare two benchmark runs and surface per-candidate score " +
+			"deltas. Useful for spotting regressions between iterations.",
+		Args: cobra.ExactArgs(2),
 		Annotations: map[string]string{
-			"kit/side-effect": "read",
-			"kit/idempotent":  "yes",
+			"kit/side-effect":    "read",
+			"kit/idempotent":     "yes",
+			"kit/top-level-verb": "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return compareRuns(cmd.Context(), v, args[0], args[1])

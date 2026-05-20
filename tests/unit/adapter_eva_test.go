@@ -39,7 +39,9 @@ func TestEva_SuccessExitZero(t *testing.T) {
 	r, err := a.Run(context.Background(), c, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 0, r.ExitCode)
-	assert.Greater(t, r.DurationMs, int64(0))
+	// Sub-millisecond runs truncate to 0 on fast runners; the adapter
+	// contract is non-negative, not strictly positive.
+	assert.GreaterOrEqual(t, r.DurationMs, int64(0))
 	assert.NotEmpty(t, r.Output)
 }
 
