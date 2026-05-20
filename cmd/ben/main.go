@@ -147,12 +147,17 @@ func configCmd(_ *cli.Root) *cobra.Command {
 // benConfigResolver returns ben's config precedence chain (highest first):
 // project → user → system. The --config flag short-circuits this chain
 // at runtime; kit's `config path` reports the highest existing entry.
+//
+// TODO(after kit/v0.4.0-alpha.3, T-0091): switch project-layer path based
+// on root.InvokedAs() — ".hop/ben.yaml" under hop umbrella, ".tlc/ben.yaml"
+// under tlc, ".ben/config.yaml" standalone. Only one wins per invocation;
+// kit does not allow multiple project-layer configs.
 func benConfigResolver(cwd string) []kitcliconfig.ResolvedPath {
 	out := []kitcliconfig.ResolvedPath{}
 
-	// Project layer.
-	for _, name := range []string{".ben.yaml", filepath.Join(".ben", "ben.yaml")} {
-		p := filepath.Join(cwd, name)
+	// Project layer (standalone). See TODO above for caller-context paths.
+	{
+		p := filepath.Join(cwd, ".ben", "config.yaml")
 		out = append(out, kitcliconfig.ResolvedPath{
 			Path:   p,
 			Source: "file",
@@ -163,7 +168,7 @@ func benConfigResolver(cwd string) []kitcliconfig.ResolvedPath {
 
 	// User layer.
 	if dir, err := xdg.ConfigDir("ben"); err == nil {
-		p := filepath.Join(dir, "ben.yaml")
+		p := filepath.Join(dir, "config.yaml")
 		out = append(out, kitcliconfig.ResolvedPath{
 			Path:   p,
 			Source: "file",
@@ -174,10 +179,10 @@ func benConfigResolver(cwd string) []kitcliconfig.ResolvedPath {
 
 	// System layer.
 	out = append(out, kitcliconfig.ResolvedPath{
-		Path:   "/etc/ben/ben.yaml",
+		Path:   "/etc/ben/config.yaml",
 		Source: "file",
 		Scope:  "system",
-		Exists: fileExists("/etc/ben/ben.yaml"),
+		Exists: fileExists("/etc/ben/config.yaml"),
 	})
 
 	return out
@@ -217,12 +222,20 @@ func applyCommandGroups(rootCmd *cobra.Command) {
 	}
 }
 
-// makeConfigLoader returns a PreRunE that loads a ben.yaml config file
-// into v. It honours kit's -c/--config global (StringArray): bare-path
-// tokens layer extra config files on top of discovered defaults;
-// key=value tokens apply scalar overrides. When no -c paths are given
-// it discovers default locations: project (.ben.yaml or .ben/ben.yaml) →
-// user ($XDG_CONFIG_HOME/ben/ben.yaml) → system (/etc/ben/ben.yaml).
+// makeConfigLoader returns a PreRunE that loads a ben config file into v.
+// It honours kit's -c/--config global (StringArray): bare-path tokens
+// OVERRIDE the discovery chain when supplied (kit semantics — -c wins over
+// any previously discovered file); key=value tokens apply scalar overrides
+// on top of whatever file layer was loaded. When no -c paths are given it
+// discovers default locations in precedence order (highest first):
+//
+//	project ./.ben/config.yaml
+//	user    $XDG_CONFIG_HOME/ben/config.yaml
+//	system  /etc/ben/config.yaml
+//
+// TODO(after kit/v0.4.0-alpha.3, T-0091): switch project-layer path based
+// on root.InvokedAs() — ".hop/ben.yaml" under hop umbrella, ".tlc/ben.yaml"
+// under tlc, ".ben/config.yaml" standalone. Only one wins per invocation.
 func makeConfigLoader(root *cli.Root) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if root == nil || root.Viper == nil {
@@ -234,8 +247,9 @@ func makeConfigLoader(root *cli.Root) func(cmd *cobra.Command, args []string) er
 			return err
 		}
 		if len(paths) > 0 {
-			// -c <path> tokens: use the first as the primary config file
-			// and merge any additional ones on top.
+			// -c <path> tokens override discovery entirely: use the first
+			// as the primary config file and merge any additional ones on
+			// top of it (later -c wins over earlier).
 			v.SetConfigFile(paths[0])
 			if err := v.ReadInConfig(); err != nil {
 				return err
@@ -247,15 +261,32 @@ func makeConfigLoader(root *cli.Root) func(cmd *cobra.Command, args []string) er
 				}
 			}
 		} else {
-			v.SetConfigName("ben")
-			v.SetConfigType("yaml")
-			v.AddConfigPath(".")
-			v.AddConfigPath(".ben")
-			if dir, err := xdg.ConfigDir("ben"); err == nil {
-				v.AddConfigPath(dir)
+			// Walk the precedence chain lowest-to-highest, merging each
+			// layer so higher layers (project) win over lower (system).
+			// Missing files are not an error; parse errors are.
+			candidates := []string{"/etc/ben/config.yaml"}
+			if dir, derr := xdg.ConfigDir("ben"); derr == nil {
+				candidates = append(candidates, filepath.Join(dir, "config.yaml"))
 			}
-			v.AddConfigPath("/etc/ben")
-			_ = v.ReadInConfig() // missing config is not an error
+			candidates = append(candidates, filepath.Join(".ben", "config.yaml"))
+
+			loaded := false
+			for _, p := range candidates {
+				if !fileExists(p) {
+					continue
+				}
+				v.SetConfigFile(p)
+				if !loaded {
+					if err := v.ReadInConfig(); err != nil {
+						return err
+					}
+					loaded = true
+				} else {
+					if err := v.MergeInConfig(); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		// Apply key=value overrides on top of any loaded file(s).
 		for k, val := range overrides {
