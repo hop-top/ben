@@ -100,8 +100,8 @@ CI cannot create mirror repos. Human/web action required:
 ## Post-merge sanity (run AFTER first release-please PR merges)
 
 - [ ] `gh run list --workflow publish.yml --repo hop-top/ben` shows a
-      run triggered by the `ben/v0.2.0-alpha.0` tag push.
-- [ ] `gh run list --workflow goreleaser.yml --repo hop-top/ben`
+      run triggered by the `ben/v0.2.0-alpha.1` tag push.
+- [ ] `gh run list --workflow goreleaser-on-tag.yml --repo hop-top/ben`
       similarly shows a parallel run on the same tag.
 - [ ] If either failed: fix on `main` then **delete + recreate the
       tag** (do NOT `gh run rerun` — `publish.yml` snapshots from the
