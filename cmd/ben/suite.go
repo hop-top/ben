@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"hop.top/ben/internal/clierr"
 	"hop.top/ben/internal/spec"
 	"hop.top/kit/go/console/output"
 	"hop.top/kit/go/core/xdg"
@@ -87,7 +88,7 @@ func suiteShowCmd(v *viper.Viper) *cobra.Command {
 				return err
 			}
 			if s == nil {
-				return output.NotFoundError(fmt.Sprintf("suite %q not found", name))
+				return clierr.NoSuite(name)
 			}
 			format := v.GetString("format")
 			switch format {

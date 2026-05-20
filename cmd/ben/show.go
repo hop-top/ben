@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"hop.top/ben/internal/clierr"
 	"hop.top/ben/internal/reporter"
 	"hop.top/ben/internal/storage"
 	"hop.top/kit/go/console/output"
@@ -44,7 +45,7 @@ func showRun(ctx context.Context, v *viper.Viper, runID string) error {
 	r, err := store.Get(ctx, runID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return output.NotFoundError(fmt.Sprintf("run %q not found", runID))
+			return clierr.NoRun(runID)
 		}
 		return fmt.Errorf("load run %q: %w", runID, err)
 	}
