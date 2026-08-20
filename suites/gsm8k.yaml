@@ -23,9 +23,7 @@ metrics:
   - cost_usd
 
 scorer:
-  strategy: single
-  weights:
-    accuracy: 1.0
+  strategy: single:accuracy:desc
 
 registry:
   push: false

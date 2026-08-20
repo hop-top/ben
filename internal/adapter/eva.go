@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -19,9 +21,14 @@ type EvaAdapter struct{}
 // NewEva returns a new EvaAdapter.
 func NewEva() *EvaAdapter { return &EvaAdapter{} }
 
-// Run expands {{input.*}} in c.Cmd, runs `eva run --dataset <cmd> --no-tui`
-// (adding --target <model> if model is set), captures combined output and
-// parses accuracy from the output into Metadata["accuracy"].
+// Run expands {{input.*}} in c.Cmd and runs eva against the dataset,
+// preferring machine-readable output: it first invokes
+// `eva run --dataset <cmd> --no-tui --format json`; eva builds that
+// predate --format on dataset runs reject the flag with a usage error,
+// in which case Run retries without it and emits a one-line deprecation
+// note on stderr (the regex text-scrape era ends when those builds do).
+// Accuracy lands in Metadata["accuracy"] AND Metadata["plugin_metrics"]
+// so the run pipeline scores it like any plugin-reported metric.
 // A non-zero exit code is NOT returned as an error — contract matches CLI adapter.
 func (a *EvaAdapter) Run(ctx context.Context, c spec.Candidate, input map[string]string) (*Result, error) {
 	dataset := spec.Template(c.Cmd, input)
@@ -32,12 +39,21 @@ func (a *EvaAdapter) Run(ctx context.Context, c spec.Candidate, input map[string
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "eva", args...)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	runOnce := func(extra ...string) error {
+		stdout.Reset()
+		stderr.Reset()
+		cmd := exec.CommandContext(ctx, "eva", append(append([]string{}, args...), extra...)...)
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		return cmd.Run()
+	}
 
 	start := time.Now()
-	runErr := cmd.Run()
+	runErr := runOnce("--format", "json")
+	if runErr != nil && ctx.Err() == nil && looksLikeUsageRejection(runErr, stderr.Bytes(), stdout.Bytes()) {
+		fmt.Fprintln(os.Stderr, "ben: eva build predates --format json on dataset runs; falling back to text parsing (deprecated)")
+		runErr = runOnce()
+	}
 	elapsed := time.Since(start)
 
 	result := &Result{
@@ -60,6 +76,13 @@ func (a *EvaAdapter) Run(ctx context.Context, c spec.Candidate, input map[string
 	if acc, ok := parseAccuracy(stdout.Bytes()); ok {
 		result.Metadata["accuracy"] = acc
 	}
+	// Route accuracy through the plugin-metrics channel so `ben run`
+	// scores it like any adapter-reported metric (same path binary
+	// plugin adapters use).
+	if acc, ok := result.Metadata["accuracy"].(float64); ok {
+		result.Metadata["plugin_metric_accuracy"] = acc
+		result.Metadata["plugin_metrics"] = map[string]float64{"accuracy": acc}
+	}
 
 	if runErr != nil {
 		if ctx.Err() != nil {
@@ -77,8 +100,33 @@ func (a *EvaAdapter) Run(ctx context.Context, c spec.Candidate, input map[string
 	return result, nil
 }
 
+// looksLikeUsageRejection reports whether a failed eva invocation reads
+// as "unknown flag" rather than an evaluation failure — the retry-without
+// --format trigger. Typer/click builds print a usage error mentioning the
+// offending option on stderr (sometimes stdout) and exit 2.
+func looksLikeUsageRejection(runErr error, streams ...[]byte) bool {
+	exitErr, ok := runErr.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 2 {
+		return false
+	}
+	for _, b := range streams {
+		lower := strings.ToLower(string(b))
+		if strings.Contains(lower, "--format") &&
+			(strings.Contains(lower, "no such option") ||
+				strings.Contains(lower, "unrecognized") ||
+				strings.Contains(lower, "unexpected") ||
+				strings.Contains(lower, "usage")) {
+			return true
+		}
+	}
+	return false
+}
+
 // parseAccuracy scans eva stdout for an accuracy value.
-// Tries JSON first (field "accuracy"), then a text scan for "accuracy: <float>".
+// Tries JSON first: a top-level "accuracy" field wins; failing that, a
+// results[] list of {passed: bool} objects yields the pass fraction
+// (the shape of eva's Run dump). Falls back to a text scan for
+// "accuracy: <float>".
 func parseAccuracy(data []byte) (float64, bool) {
 	// Try JSON: look for {"accuracy": <float>} anywhere in the output.
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -91,6 +139,9 @@ func parseAccuracy(data []byte) (float64, bool) {
 			if f, ok := toFloat64(v); ok {
 				return f, true
 			}
+		}
+		if acc, ok := passFraction(m); ok {
+			return acc, true
 		}
 	}
 
@@ -112,6 +163,36 @@ func parseAccuracy(data []byte) (float64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// passFraction derives accuracy from an eva Run dump: a "results" list
+// whose entries carry a boolean "passed". Returns false when the shape
+// does not match or the list is empty.
+func passFraction(m map[string]any) (float64, bool) {
+	raw, ok := m["results"]
+	if !ok {
+		return 0, false
+	}
+	list, ok := raw.([]any)
+	if !ok || len(list) == 0 {
+		return 0, false
+	}
+	total, passed := 0, 0
+	for _, item := range list {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return 0, false
+		}
+		p, ok := entry["passed"].(bool)
+		if !ok {
+			return 0, false
+		}
+		total++
+		if p {
+			passed++
+		}
+	}
+	return float64(passed) / float64(total), true
 }
 
 func toFloat64(v any) (float64, bool) {
