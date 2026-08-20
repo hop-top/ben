@@ -39,18 +39,32 @@ type Scorer interface {
 // Parse returns a Scorer for the given strategy string and weights map.
 //
 // Supported strategies:
-//   - "single:<metric>"  — rank ascending by one metric (lower = better)
-//   - "weighted"         — min-max normalise each metric, compute weighted sum, rank descending
-//   - "raw"              — no ranking; all ranks 0, all scores 0
+//   - "single:<metric>"       — rank ascending by one metric (lower = better)
+//   - "single:<metric>:asc"   — explicit ascending (same as above)
+//   - "single:<metric>:desc"  — rank descending (higher = better, e.g. accuracy)
+//   - "weighted"              — min-max normalise each metric, compute weighted sum, rank descending
+//   - "raw"                   — no ranking; all ranks 0, all scores 0
 func Parse(strategy string, weights map[string]float64) (Scorer, error) {
 	if strategy == "raw" {
 		return &rawScorer{}, nil
 	}
 	if metric, ok := strings.CutPrefix(strategy, "single:"); ok {
+		desc := false
+		if m, dir, hasDir := strings.Cut(metric, ":"); hasDir {
+			switch dir {
+			case "asc":
+				desc = false
+			case "desc":
+				desc = true
+			default:
+				return nil, fmt.Errorf("scorer: unknown direction %q (valid: asc, desc)", dir)
+			}
+			metric = m
+		}
 		if metric == "" {
 			return nil, fmt.Errorf("scorer: single strategy requires a metric name")
 		}
-		return &singleScorer{metric: metric}, nil
+		return &singleScorer{metric: metric, desc: desc}, nil
 	}
 	if strategy == "weighted" {
 		if len(weights) == 0 {
@@ -72,9 +86,11 @@ func (s *rawScorer) Score(candidates []CandidateResult) []ScoredResult {
 	return out
 }
 
-// singleScorer ranks candidates by one metric ascending (lower = better, e.g. latency).
+// singleScorer ranks candidates by one metric. Ascending (lower = better,
+// e.g. latency) by default; desc flips to higher = better (e.g. accuracy).
 type singleScorer struct {
 	metric string
+	desc   bool
 }
 
 func (s *singleScorer) Score(candidates []CandidateResult) []ScoredResult {
@@ -82,8 +98,12 @@ func (s *singleScorer) Score(candidates []CandidateResult) []ScoredResult {
 	for i, c := range candidates {
 		out[i] = ScoredResult{CandidateResult: c, Score: c.Metrics[s.metric]}
 	}
-	// Stable sort ascending by the metric value.
+	// Stable sort by the metric value: ascending by default, descending
+	// when the strategy carries the :desc direction suffix.
 	sort.SliceStable(out, func(i, j int) bool {
+		if s.desc {
+			return out[i].Score > out[j].Score
+		}
 		return out[i].Score < out[j].Score
 	})
 	// Assign ranks 1..N.
@@ -153,4 +173,19 @@ func (s *weightedScorer) Score(candidates []CandidateResult) []ScoredResult {
 		out[i].Rank = i + 1
 	}
 	return out
+}
+
+// SingleMetric extracts the metric name from a "single:<metric>[:dir]"
+// strategy string. ok is false for every other strategy shape. Callers
+// use it to validate the scored metric against collected metrics before
+// scoring (a bogus metric must be an error, not a silent all-zero score).
+func SingleMetric(strategy string) (string, bool) {
+	rest, ok := strings.CutPrefix(strategy, "single:")
+	if !ok {
+		return "", false
+	}
+	if m, _, hasDir := strings.Cut(rest, ":"); hasDir {
+		return m, true
+	}
+	return rest, true
 }

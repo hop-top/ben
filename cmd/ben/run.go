@@ -33,6 +33,7 @@ func runCmd(v *viper.Viper) *cobra.Command {
 		metricList []string
 		scorerStr  string
 		inputKV    map[string]string
+		repeat     int
 	)
 
 	cmd := &cobra.Command{
@@ -54,7 +55,7 @@ to identify duplicates.`,
 			if cli.IsDryRun(cmd) {
 				return runDryRun(cmd, v, suitePath, taskDesc, candidates, metricList, scorerStr)
 			}
-			return runBenchmark(cmd.Context(), v, suitePath, taskDesc, candidates, metricList, scorerStr, inputKV)
+			return runBenchmark(cmd.Context(), v, suitePath, taskDesc, candidates, metricList, scorerStr, inputKV, repeat)
 		},
 	}
 
@@ -65,6 +66,7 @@ to identify duplicates.`,
 	f.StringSliceVar(&metricList, "metric", nil, "Metrics to collect (e.g. latency_ms,exit_code)")
 	f.StringVar(&scorerStr, "scorer", "raw", "Scoring strategy: single:<metric>, weighted:<m>=<w>,..., raw")
 	f.StringToStringVar(&inputKV, "input", nil, "Input key=value pairs passed to candidates")
+	f.IntVar(&repeat, "repeat", 1, "Execute each candidate N times; metrics report the mean, metric_stats the spread")
 
 	return cmd
 }
@@ -77,7 +79,11 @@ func runBenchmark(
 	candidates, metricList []string,
 	scorerStr string,
 	inputKV map[string]string,
+	repeat int,
 ) error {
+	if repeat < 1 {
+		return output.UsageError("--repeat must be >= 1")
+	}
 	// progress is selected by kit/cli from --progress-format /
 	// --format (§6.5). Human reporter for TTY, JSONL when
 	// --format json (or explicit --progress-format json), Discard
@@ -148,6 +154,7 @@ func runBenchmark(
 	// 4. Run each candidate.
 	cliAdapter := adapter.NewCLI()
 	scorerInputs := make([]scorer.CandidateResult, 0, len(s.Candidates))
+	trialsByName := make(map[string][]map[string]float64, len(s.Candidates))
 	for i, c := range s.Candidates {
 		prog.Emit(ctx, progress.Event{
 			Phase: "run_candidate",
@@ -172,35 +179,45 @@ func runBenchmark(
 			}
 		}
 
-		res, runErr := adpt.Run(ctx, c, s.Task.Input)
-
 		cr := scorer.CandidateResult{
 			Name:      c.Name,
 			Metrics:   make(map[string]float64),
 			RawOutput: "",
 		}
-		if res != nil {
-			cr.RawOutput = res.Output
-			// Include plugin-reported metrics if present.
-			if pm, ok := res.Metadata["plugin_metrics"]; ok {
-				if pmMap, ok := pm.(map[string]float64); ok {
-					for k, val := range pmMap {
-						cr.Metrics[k] = val
+		trials := make([]map[string]float64, 0, repeat)
+		for t := 0; t < repeat; t++ {
+			res, runErr := adpt.Run(ctx, c, s.Task.Input)
+
+			trial := map[string]float64{}
+			if res != nil {
+				cr.RawOutput = res.Output // last trial wins; trials carry the spread
+				// Include plugin-reported metrics if present.
+				if pm, ok := res.Metadata["plugin_metrics"]; ok {
+					if pmMap, ok := pm.(map[string]float64); ok {
+						for k, val := range pmMap {
+							trial[k] = val
+						}
+					}
+				}
+				for _, mname := range metricsToCollect {
+					if _, exists := trial[mname]; exists {
+						continue
+					}
+					if m, ok := metrics.Get(mname); ok {
+						trial[mname] = m.Collect(res)
 					}
 				}
 			}
-			for _, mname := range metricsToCollect {
-				if _, exists := cr.Metrics[mname]; exists {
-					continue
-				}
-				if m, ok := metrics.Get(mname); ok {
-					cr.Metrics[mname] = m.Collect(res)
-				}
+			if runErr != nil && cr.Err == nil {
+				cr.Err = runErr
 			}
+			trials = append(trials, trial)
 		}
-		if runErr != nil {
-			cr.Err = runErr
+		cr.Metrics = run.MeanMetrics(trials)
+		if cr.Metrics == nil {
+			cr.Metrics = map[string]float64{}
 		}
+		trialsByName[c.Name] = trials
 		scorerInputs = append(scorerInputs, cr)
 	}
 
@@ -215,6 +232,22 @@ func runBenchmark(
 		}
 	}
 
+	// 4c. Validate the scored metric actually exists somewhere (BUG-3):
+	// a bogus "single:<metric>" must be an error, not a silent all-zero
+	// ranking.
+	if m, ok := scorer.SingleMetric(s.Scorer.Strategy); ok {
+		found := false
+		for _, cr := range scorerInputs {
+			if _, exists := cr.Metrics[m]; exists {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("scorer: metric %q not in run (collected: %s)", m, strings.Join(metricsToCollect, ", "))
+		}
+	}
+
 	// 5. Score.
 	prog.Emit(ctx, progress.Event{Phase: "score", Item: s.Scorer.Strategy})
 	scored := sc.Score(scorerInputs)
@@ -225,9 +258,11 @@ func runBenchmark(
 	candidates2 := make([]run.CandidateResult, len(scored))
 	for i, sr := range scored {
 		cr := run.CandidateResult{
-			Name:      sr.Name,
-			Metrics:   sr.Metrics,
-			RawOutput: sr.RawOutput,
+			Name:        sr.Name,
+			Metrics:     sr.Metrics,
+			RawOutput:   sr.RawOutput,
+			Trials:      trialsByName[sr.Name],
+			MetricStats: run.ComputeStats(trialsByName[sr.Name]),
 		}
 		if s.Scorer.Strategy != "raw" {
 			score := sr.Score

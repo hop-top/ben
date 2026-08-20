@@ -56,3 +56,21 @@ func NoSuite(suite string) *output.Error {
 		ExitCode:     3,
 	}
 }
+
+// CodeBenRegression flags a failed regression gate from
+// `ben compare --fail-on-regression`. Exit 4 (the CONFLICT family):
+// the candidate run's state conflicts with the baseline expectation.
+// Distinct from NOT_FOUND (3) and generic failure (1) so CI scripts can
+// branch on "regression detected" specifically.
+const CodeBenRegression = "BEN_REGRESSION" // exit 4 — CONFLICT family
+
+// Regression returns an *output.Error for a failed regression gate.
+// detail should name the first offending (candidate, metric) pair.
+func Regression(detail string) *output.Error {
+	return &output.Error{
+		Code:         CodeBenRegression,
+		Message:      fmt.Sprintf("regression gate failed: %s", detail),
+		SuggestedFix: "inspect deltas with `ben compare <a> <b> --format json`",
+		ExitCode:     4,
+	}
+}

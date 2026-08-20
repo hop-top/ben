@@ -11,13 +11,30 @@ type ScorerConfig struct {
 
 // CandidateResult holds per-candidate metrics, score, rank, and raw output.
 // Score and Rank are nil when no scoring was applied (raw mode).
+//
+// Metrics holds the per-metric MEAN across trials (identical to the single
+// observation when --repeat is 1). Trials preserves the raw per-trial
+// values and MetricStats summarises them; both are additive fields — a
+// pre-repetition run JSON without them still decodes.
 type CandidateResult struct {
-	Name      string             `json:"name"`
-	Metrics   map[string]float64 `json:"metrics"`
-	Score     *float64           `json:"score"`
-	Rank      *int               `json:"rank"`
-	RawOutput string             `json:"raw_output"`
-	Error     string             `json:"error,omitempty"`
+	Name        string                `json:"name"`
+	Metrics     map[string]float64    `json:"metrics"`
+	Score       *float64              `json:"score"`
+	Rank        *int                  `json:"rank"`
+	RawOutput   string                `json:"raw_output"`
+	Error       string                `json:"error,omitempty"`
+	Trials      []map[string]float64  `json:"trials,omitempty"`
+	MetricStats map[string]MetricStat `json:"metric_stats,omitempty"`
+}
+
+// MetricStat summarises one metric across N trials. Stddev is the sample
+// standard deviation (n-1 denominator); 0 when N == 1.
+type MetricStat struct {
+	Mean   float64 `json:"mean"`
+	Stddev float64 `json:"stddev"`
+	Min    float64 `json:"min"`
+	Max    float64 `json:"max"`
+	N      int     `json:"n"`
 }
 
 // Metadata captures environment info at run time.
