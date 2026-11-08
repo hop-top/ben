@@ -7,6 +7,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.2.0-alpha.2](https://github.com/hop-top/ben/compare/ben/v0.2.0-alpha.1...ben/v0.2.0-alpha.2) (2026-11-08)
+
+
+### Features
+
+* **metrics:** cpu/memory metrics, direct exec, scorer direction ([39e4dad](https://github.com/hop-top/ben/commit/39e4dad72131703ed56cd333606089cab93b2507))
+* repetitions, regression gate, runnable shipped suites ([e1a0ae2](https://github.com/hop-top/ben/commit/e1a0ae2c2de5f4433edd5bf570758a68e91bb14a))
+
 ## [0.2.0-alpha.1](https://github.com/hop-top/ben/compare/ben/v0.2.0-alpha.0...ben/v0.2.0-alpha.1) (2026-05-20)
 
 
