@@ -125,6 +125,10 @@ candidates:
   - name: tool-a
     adapter: cli
     cmd: "tool-a --flag {{input.key}}"
+  - name: tool-b-direct               # no shell: cmd is the program
+    adapter: cli
+    cmd: tool-b
+    args: ["--flag", "{{input.key}}"]
   - name: model-x
     adapter: llm
     model: claude-sonnet-4-6
@@ -134,6 +138,10 @@ metrics:
   - exit_code
   - output_size
   - output_lines
+  - cpu_user_ms                       # cli adapter
+  - cpu_sys_ms                        # cli adapter
+  - cpu_ms                            # user + sys
+  - max_rss_kb                        # peak RSS, KiB (unix)
   - accuracy                          # eva adapter only
   - cost_usd                          # eva adapter only
   - <plugin-metric>                   # llm_judge or binary plugin
@@ -146,7 +154,17 @@ scorer:
 
 registry:
   push: false
+
+repeat: 20                            # measured runs per candidate (default 1)
+warmup: 3                             # discarded runs first (default 0)
+aggregate: median                     # mean (default) | median | p95 (kept in metrics)
+# per cli candidate: prepare: "<sh cmd, untimed, before every run>"
+#                    input_file: path # piped to stdin
 ```
+
+CLI: `ben run --repeat 20 --warmup 3 --aggregate p95 ...`. JSON has `trials` +
+`metric_stats` (n/mean/median/p95/min/max/stddev) per metric; table shows
+`value±stddev`.
 
 Suite scan dirs (in order):
 1. `~/.local/share/ben/suites/`
@@ -158,20 +176,33 @@ Suite scan dirs (in order):
 
 | Metric         | What it measures                       |
 |----------------|----------------------------------------|
-| `latency_ms`   | wall-clock duration in ms              |
+| `latency_ms`   | wall-clock duration in ms (fractional, ns-precision) |
 | `exit_code`    | process exit code                      |
 | `output_size`  | byte length of combined output         |
 | `output_lines` | line count of output                   |
 | `accuracy`     | fraction correct (eva adapter)         |
 | `cost_usd`     | LLM token cost in USD (eva/llm)        |
+| `cpu_user_ms`  | child user CPU ms (cli; omitted if unmeasured) |
+| `cpu_sys_ms`   | child kernel CPU ms (cli)              |
+| `cpu_ms`       | `cpu_user_ms` + `cpu_sys_ms`           |
+| `max_rss_kb`   | peak RSS in KiB (cli, unix)            |
+
+CPU/RSS cover the shell plus waited descendants; set `args` on the candidate to
+run without a shell and measure only the target. Unwaited (daemonised)
+children are not counted. All four are lower-is-better.
 
 ### Scorers
 
 | Strategy                         | Meaning                                 |
 |----------------------------------|-----------------------------------------|
 | `raw`                            | no ranking; collect metrics only        |
-| `single:<metric>`                | rank by one metric (lower = better)     |
+| `single:<metric>`                | rank by one metric, best first          |
 | `weighted:<m>=<w>,<m>=<w>,...`   | weighted sum; rank highest score first  |
+
+Direction is per metric: lower-is-better = `latency_ms`, `cpu_*_ms`,
+`max_rss_kb`, `cost_usd`, `tokens`, `exit_code`; everything else (incl.
+plugin metrics unless they declare `direction: lower`) is higher-is-better.
+`weighted:` inverts lower-is-better metrics so the fastest candidate wins.
 
 ---
 

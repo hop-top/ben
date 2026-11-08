@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"hop.top/ben/internal/metrics"
 )
 
 // CandidateResult holds raw metric values for one candidate.
@@ -39,23 +41,28 @@ type Scorer interface {
 // Parse returns a Scorer for the given strategy string and weights map.
 //
 // Supported strategies:
-//   - "single:<metric>"       — rank ascending by one metric (lower = better)
-//   - "single:<metric>:asc"   — explicit ascending (same as above)
-//   - "single:<metric>:desc"  — rank descending (higher = better, e.g. accuracy)
-//   - "weighted"              — min-max normalise each metric, compute weighted sum, rank descending
+//   - "single:<metric>"       — rank best first by one metric: ascending for
+//     lower-is-better metrics (latency, cpu, memory, cost), descending otherwise
+//   - "single:<metric>:asc"   — explicit ascending, overriding the metric's direction
+//   - "single:<metric>:desc"  — explicit descending, overriding the metric's direction
+//   - "weighted"              — min-max normalise each metric (inverted for
+//     lower-is-better ones so 1 is always best), weighted sum, rank descending
 //   - "raw"                   — no ranking; all ranks 0, all scores 0
+//
+// Direction comes from metrics.DirectionOf; undeclared metrics are
+// higher-is-better.
 func Parse(strategy string, weights map[string]float64) (Scorer, error) {
 	if strategy == "raw" {
 		return &rawScorer{}, nil
 	}
 	if metric, ok := strings.CutPrefix(strategy, "single:"); ok {
-		desc := false
+		explicit := dirAuto
 		if m, dir, hasDir := strings.Cut(metric, ":"); hasDir {
 			switch dir {
 			case "asc":
-				desc = false
+				explicit = dirAsc
 			case "desc":
-				desc = true
+				explicit = dirDesc
 			default:
 				return nil, fmt.Errorf("scorer: unknown direction %q (valid: asc, desc)", dir)
 			}
@@ -64,7 +71,7 @@ func Parse(strategy string, weights map[string]float64) (Scorer, error) {
 		if metric == "" {
 			return nil, fmt.Errorf("scorer: single strategy requires a metric name")
 		}
-		return &singleScorer{metric: metric, desc: desc}, nil
+		return &singleScorer{metric: metric, dir: explicit}, nil
 	}
 	if strategy == "weighted" {
 		if len(weights) == 0 {
@@ -86,25 +93,45 @@ func (s *rawScorer) Score(candidates []CandidateResult) []ScoredResult {
 	return out
 }
 
-// singleScorer ranks candidates by one metric. Ascending (lower = better,
-// e.g. latency) by default; desc flips to higher = better (e.g. accuracy).
+// singleScorer ranks candidates by one metric, best first. dir overrides the
+// metric's registered direction when the strategy carries :asc or :desc.
 type singleScorer struct {
 	metric string
-	desc   bool
+	dir    explicitDir
 }
+
+type explicitDir int
+
+const (
+	dirAuto explicitDir = iota // follow metrics.DirectionOf
+	dirAsc
+	dirDesc
+)
 
 func (s *singleScorer) Score(candidates []CandidateResult) []ScoredResult {
 	out := make([]ScoredResult, len(candidates))
 	for i, c := range candidates {
 		out[i] = ScoredResult{CandidateResult: c, Score: c.Metrics[s.metric]}
 	}
-	// Stable sort by the metric value: ascending by default, descending
-	// when the strategy carries the :desc direction suffix.
+	// Stable sort best first. A candidate that did not
+	// report the metric (e.g. max_rss_kb unavailable) ranks after all that did.
+	lower := metrics.DirectionOf(s.metric) == metrics.LowerIsBetter
+	switch s.dir {
+	case dirAsc:
+		lower = true
+	case dirDesc:
+		lower = false
+	}
+	has := func(r ScoredResult) bool { _, ok := r.Metrics[s.metric]; return ok }
 	sort.SliceStable(out, func(i, j int) bool {
-		if s.desc {
-			return out[i].Score > out[j].Score
+		hi, hj := has(out[i]), has(out[j])
+		if hi != hj {
+			return hi
 		}
-		return out[i].Score < out[j].Score
+		if lower {
+			return out[i].Score < out[j].Score
+		}
+		return out[i].Score > out[j].Score
 	})
 	// Assign ranks 1..N.
 	for i := range out {
@@ -114,7 +141,8 @@ func (s *singleScorer) Score(candidates []CandidateResult) []ScoredResult {
 }
 
 // weightedScorer min-max normalises each metric and computes a weighted sum.
-// Higher score = better; rank 1 = highest score.
+// Higher score = better for every metric (lower-is-better ones are inverted);
+// rank 1 = highest score.
 type weightedScorer struct {
 	weights map[string]float64
 }
@@ -158,6 +186,9 @@ func (s *weightedScorer) Score(candidates []CandidateResult) []ScoredResult {
 				norm = 0.5
 			} else {
 				norm = (c.Metrics[name] - r.min) / (r.max - r.min)
+				if metrics.DirectionOf(name) == metrics.LowerIsBetter {
+					norm = 1 - norm
+				}
 			}
 			score += (w / totalWeight) * norm
 		}

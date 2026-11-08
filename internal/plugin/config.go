@@ -14,6 +14,8 @@ type MetricPluginConfig struct {
 	Model  string `yaml:"model"`
 	Prompt string `yaml:"prompt"`
 	Import string `yaml:"import"` // binary name on PATH (Phase 3)
+	// Direction is "lower" or "higher" (default) is better for this metric.
+	Direction string `yaml:"direction"`
 }
 
 // LoadMetricPlugins registers config-declared metrics into the global registry.
@@ -35,6 +37,11 @@ func LoadMetricPlugins(cfgs []MetricPluginConfig) error {
 			}
 			m := metrics.NewLLMJudge(cfg.Name, cfg.Model, cfg.Prompt)
 			metrics.Register(m)
+			if d, ok := metrics.ParseDirection(cfg.Direction); ok {
+				metrics.SetDirection(cfg.Name, d)
+			} else if cfg.Direction != "" {
+				return fmt.Errorf("plugin %q: direction must be \"lower\" or \"higher\", got %q", cfg.Name, cfg.Direction)
+			}
 		case "import":
 			// Phase 3: binary plugin discovery — not yet implemented.
 		default:

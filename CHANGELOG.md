@@ -49,8 +49,34 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Fixed
+
+- `weighted:` scorer ranked the highest normalised value first even for
+  lower-is-better metrics, so the slowest candidate won on `latency_ms`.
+  Metrics now declare a direction (lower/higher); `single:` and `weighted:`
+  both honour it. Plugin metrics default to higher-is-better and can declare
+  `direction: lower` (config) or `"directions"` (binary adapter response)
+
+### Changed
+
+- `latency_ms` is fractional milliseconds (ns-precision wall time) instead of
+  whole ms, so sub-ms tools are measurable. Metric name unchanged;
+  `adapter.Result.Duration` carries the precise value, `DurationMs` stays
+
 ### Added
 
+- `cpu_user_ms`, `cpu_sys_ms`, `cpu_ms`, `max_rss_kb` built-in metrics from
+  the child's rusage (cli adapter); `max_rss_kb` normalised to KiB across
+  linux/darwin; omitted when unmeasured (e.g. `max_rss_kb` on Windows).
+  Binary adapters may report the same fields in their JSON response
+- Repetition extras on top of `--repeat`: suite `repeat`, `warmup`,
+  `aggregate` (mean|median|p95) keys and `--warmup`, `--aggregate` flags;
+  `metric_stats` gain `median` and `p95`; per-candidate `prepare:` (untimed,
+  before every run) and `input_file:` (stdin) for the cli adapter; table shows
+  value±stddev. Regression gate default directions follow the metric registry
+  (cpu, memory, tokens too)
+- cli candidate `args: [...]` runs the program directly without a shell
+- `single:<metric>` ranks candidates missing the metric last
 - `ben list` — replaces `ben query`; lists recent runs from local storage
 - `ben show <run-id>` — fetch a single run by id
 - `ben config path` / `ben config paths` — inspect config file precedence

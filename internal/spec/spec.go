@@ -11,14 +11,21 @@ import (
 
 // Spec is a ben suite specification.
 type Spec struct {
-	Name        string            `yaml:"name"`
-	Description string            `yaml:"description"`
-	Version     int               `yaml:"version"`
-	Task        Task              `yaml:"task"`
-	Candidates  []Candidate       `yaml:"candidates"`
-	Metrics     []string          `yaml:"metrics"`
-	Scorer      Scorer            `yaml:"scorer"`
-	Registry    RegistryConfig    `yaml:"registry"`
+	Name        string         `yaml:"name"`
+	Description string         `yaml:"description"`
+	Version     int            `yaml:"version"`
+	Task        Task           `yaml:"task"`
+	Candidates  []Candidate    `yaml:"candidates"`
+	Metrics     []string       `yaml:"metrics"`
+	Scorer      Scorer         `yaml:"scorer"`
+	Registry    RegistryConfig `yaml:"registry"`
+
+	// Repetition. Repeat is measured runs per candidate (0/absent = 1), Warmup
+	// is discarded runs before them, Aggregate picks the value candidates are
+	// kept per metric: mean (default), median or p95. Candidates run sequentially.
+	Repeat    int    `yaml:"repeat"`
+	Warmup    int    `yaml:"warmup"`
+	Aggregate string `yaml:"aggregate"`
 }
 
 // Task describes the benchmark prompt and its inputs.
@@ -33,6 +40,17 @@ type Candidate struct {
 	Adapter string `yaml:"adapter"`
 	Cmd     string `yaml:"cmd"`
 	Model   string `yaml:"model"`
+
+	// Args, when non-nil (cli adapter), switches to argv form: Cmd is the
+	// program, run directly with these args and no shell.
+	Args []string `yaml:"args"`
+
+	// Prepare (cli adapter) is a shell command run before every run,
+	// warmups included, and not timed. A non-zero exit aborts the candidate.
+	Prepare string `yaml:"prepare"`
+	// InputFile (cli adapter) is a path whose contents are piped to the
+	// command's stdin. {{input.*}} is expanded.
+	InputFile string `yaml:"input_file"`
 }
 
 // Scorer configures how candidates are ranked.
@@ -69,6 +87,17 @@ func validate(s *Spec) error {
 	if len(s.Candidates) == 0 {
 		return fmt.Errorf("missing required field: candidates (must have at least one)")
 	}
+	if s.Repeat < 0 {
+		return fmt.Errorf("repeat must be >= 0, got %d", s.Repeat)
+	}
+	if s.Warmup < 0 {
+		return fmt.Errorf("warmup must be >= 0, got %d", s.Warmup)
+	}
+	switch s.Aggregate {
+	case "", "median", "mean", "p95":
+	default:
+		return fmt.Errorf("aggregate must be median, mean or p95, got %q", s.Aggregate)
+	}
 	for i, c := range s.Candidates {
 		if c.Name == "" {
 			return fmt.Errorf("candidate[%d]: missing name", i)
@@ -95,6 +124,9 @@ type FromFlags struct {
 	Metrics    []string
 	Scorer     string
 	Input      map[string]string
+	Repeat     int
+	Warmup     int
+	Aggregate  string
 }
 
 // ToSpec converts inline flag values into a Spec. Candidates format:
@@ -154,7 +186,10 @@ func (f *FromFlags) ToSpec() (*Spec, error) {
 			Strategy: scorerStrategy,
 			Weights:  scorerWeights,
 		},
-		Version: 1,
+		Version:   1,
+		Repeat:    f.Repeat,
+		Warmup:    f.Warmup,
+		Aggregate: f.Aggregate,
 	}
 
 	if len(s.Candidates) == 0 {

@@ -3,6 +3,8 @@ package run
 import (
 	"fmt"
 	"sort"
+
+	"hop.top/ben/internal/metrics"
 )
 
 // Direction states which way a metric improves.
@@ -15,16 +17,15 @@ const (
 	DirectionMin Direction = "min"
 )
 
-// DefaultDirection returns the conventional improvement direction for a
-// metric: lower-is-better for latency_ms and cost_usd, higher-is-better
-// for everything else. Callers override per metric via GateSpec.Directions.
+// DefaultDirection returns the improvement direction registered for a
+// metric (see metrics.DirectionOf): lower-is-better for latency, CPU,
+// memory, cost, tokens and exit_code; higher-is-better for everything else.
+// Callers override per metric via GateSpec.Directions.
 func DefaultDirection(metric string) Direction {
-	switch metric {
-	case "latency_ms", "cost_usd":
+	if metrics.DirectionOf(metric) == metrics.LowerIsBetter {
 		return DirectionMin
-	default:
-		return DirectionMax
 	}
+	return DirectionMax
 }
 
 // GateSpec configures a regression gate between a baseline run (A) and a

@@ -3,6 +3,7 @@ package adapter
 
 import (
 	"context"
+	"time"
 
 	"hop.top/ben/internal/spec"
 )
@@ -20,7 +21,18 @@ type Result struct {
 	ExitCode   int
 	Err        error
 	DurationMs int64
-	Metadata   map[string]any
+	// Duration is the same wall-clock time at full (ns) precision; adapters
+	// that measure time set it alongside DurationMs. latency_ms is derived
+	// from it as fractional ms, falling back to DurationMs when zero.
+	Duration time.Duration
+	Metadata map[string]any
+
+	// Optional resource usage of the waited child process. Nil means the
+	// adapter or platform could not measure it; the matching metric is then
+	// omitted rather than reported as 0.
+	CPUUserMs *float64 // user-mode CPU time, ms
+	CPUSysMs  *float64 // kernel-mode CPU time, ms
+	MaxRSSKB  *int64   // peak resident set size, KiB
 }
 
 // Adapter executes a single benchmark candidate and returns a Result.

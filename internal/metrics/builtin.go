@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"strings"
+	"time"
 
 	"hop.top/ben/internal/adapter"
 )
@@ -16,14 +17,23 @@ func init() {
 // latencyMetric returns the wall-clock duration of the run in milliseconds.
 type latencyMetric struct{}
 
-func (latencyMetric) Name() string                       { return "latency_ms" }
-func (latencyMetric) Collect(r *adapter.Result) float64  { return float64(r.DurationMs) }
+func (latencyMetric) Name() string { return "latency_ms" }
+func (latencyMetric) Collect(r *adapter.Result) float64 {
+	if r.Duration > 0 {
+		return float64(r.Duration) / float64(time.Millisecond)
+	}
+	return float64(r.DurationMs)
+}
+
+func (latencyMetric) Direction() Direction { return LowerIsBetter }
 
 // exitCodeMetric returns the process exit code.
 type exitCodeMetric struct{}
 
 func (exitCodeMetric) Name() string                      { return "exit_code" }
 func (exitCodeMetric) Collect(r *adapter.Result) float64 { return float64(r.ExitCode) }
+
+func (exitCodeMetric) Direction() Direction { return LowerIsBetter }
 
 // outputSizeMetric returns the byte length of the combined output.
 type outputSizeMetric struct{}

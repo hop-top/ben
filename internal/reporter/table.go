@@ -57,8 +57,18 @@ func toTableRow(c run.CandidateResult) tableRow {
 	}
 	sort.Strings(keys)
 	parts := make([]string, 0, len(keys))
+	n := 0
 	for _, k := range keys {
+		// Repeated runs: show the ranked aggregate (median by default) ± stddev.
+		if agg, ok := c.MetricStats[k]; ok && agg.N > 1 {
+			parts = append(parts, fmt.Sprintf("%s=%.4g±%.3g", k, c.Metrics[k], agg.Stddev))
+			n = max(n, agg.N)
+			continue
+		}
 		parts = append(parts, fmt.Sprintf("%s=%.4g", k, c.Metrics[k]))
+	}
+	if n > 1 {
+		parts = append(parts, fmt.Sprintf("n=%d", n))
 	}
 	rank := 0
 	score := "-"

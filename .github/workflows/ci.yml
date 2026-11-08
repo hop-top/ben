@@ -6,72 +6,46 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  GOPRIVATE: hop.top
+  GONOSUMDB: hop.top
+  GOFLAGS: -buildvcs=false
+
 jobs:
   test:
     name: test (go ${{ matrix.go }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.23"]
+        go: ["from go.mod"]
 
     steps:
-      - name: Checkout ben
-        uses: actions/checkout@v4
-        with:
-          path: ben
+      - uses: actions/checkout@v4
 
-      - name: Checkout kit
-        uses: actions/checkout@v4
-        with:
-          repository: hop-top/kit
-          path: kit
-
-      - name: Set up Go ${{ matrix.go }}
+      - name: Set up Go (version from go.mod)
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: go.mod
           cache: true
-          cache-dependency-path: ben/go.sum
 
-      - name: Create go.work
-        run: |
-          cat > go.work <<'EOF'
-          go 1.23
-
-          use (
-            ./ben
-            ./kit
-          )
-          EOF
-          go work sync
-
-      - name: go mod download
-        working-directory: ben
+      - name: Configure private modules
+        shell: bash
+        run: git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
         env:
-          GOWORK: ${{ github.workspace }}/go.work
-        run: go mod download
+          GITHUB_TOKEN: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: go build ./...
-        working-directory: ben
-        env:
-          GOWORK: ${{ github.workspace }}/go.work
         run: go build ./...
 
       - name: go vet ./...
-        working-directory: ben
-        env:
-          GOWORK: ${{ github.workspace }}/go.work
         run: go vet ./...
 
       - name: go test ./...
-        working-directory: ben
-        env:
-          GOWORK: ${{ github.workspace }}/go.work
         run: go test -count=1 -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-go${{ matrix.go }}
-          path: ben/coverage.out
+          name: coverage
+          path: coverage.out
           if-no-files-found: warn

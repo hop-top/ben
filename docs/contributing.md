@@ -49,12 +49,15 @@ Read each file's godoc for the full contract before implementing.
 1. Create `internal/metrics/<name>.go` (or add to `builtin.go` if trivial).
 2. Define a struct; implement `Name() string` and `Collect(*Result) float64`.
    - `Name()` must be unique, stable, no spaces/dots.
-   - `Collect()` must never panic; return 0 or math.NaN() for missing data.
-3. Register via `init()`:
+   - `Collect()` must never panic; return math.NaN() for data that could not
+     be measured (the runner omits NaN metrics) or 0 when 0 is a real value.
+3. If lower values are better, implement `Direction() metrics.Direction`
+   returning `metrics.LowerIsBetter` (default is higher-is-better).
+4. Register via `init()`:
    ```
    func init() { Register(<name>Metric{}) }
    ```
-4. `task test` — add a unit test proving Name uniqueness and Collect output.
+5. `task test` — add a unit test proving Name uniqueness and Collect output.
 
 ## Adding a scorer
 
