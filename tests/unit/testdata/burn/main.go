@@ -1,5 +1,7 @@
-// Command burn is a test helper: it burns ~60 ms of CPU, touches ~24 MB of
-// memory, then prints its arguments joined by "|".
+// Command burn is a test helper: it burns at least 60 ms of its OWN CPU time
+// (user+sys, via getrusage), touches ~24 MB of memory, then prints its
+// arguments joined by "|". Spinning on consumed CPU rather than wall time keeps
+// the burn deterministic under machine load.
 package main
 
 import (
@@ -8,6 +10,8 @@ import (
 	"strings"
 	"time"
 )
+
+const burnTime = 60 * time.Millisecond
 
 var sink []byte
 
@@ -18,9 +22,8 @@ func main() {
 	}
 	sink = buf
 
-	deadline := time.Now().Add(60 * time.Millisecond)
 	x := uint64(1)
-	for time.Now().Before(deadline) {
+	for cpuTime() < burnTime {
 		for i := 0; i < 10000; i++ {
 			x = x*6364136223846793005 + 1442695040888963407
 		}
