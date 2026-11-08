@@ -24,6 +24,15 @@ type binaryAdapterRequest struct {
 type binaryAdapterResponse struct {
 	Metrics map[string]float64 `json:"metrics"`
 	Output  string             `json:"output"`
+
+	// Directions optionally declares, per reported metric, "lower" or
+	// "higher" is better. Undeclared plugin metrics are higher-is-better.
+	Directions map[string]string `json:"directions,omitempty"`
+
+	// Optional resource usage; omit when unmeasured.
+	CPUUserMs *float64 `json:"cpu_user_ms,omitempty"`
+	CPUSysMs  *float64 `json:"cpu_sys_ms,omitempty"`
+	MaxRSSKB  *int64   `json:"max_rss_kb,omitempty"`
 }
 
 // BinaryAdapter runs a ben-adapter-* binary on PATH using the stdio JSON protocol.
@@ -66,6 +75,7 @@ func (b *BinaryAdapter) Run(ctx context.Context, c spec.Candidate, input map[str
 
 	result := &Result{
 		DurationMs: elapsed.Milliseconds(),
+		Duration:   elapsed,
 	}
 
 	if runErr != nil {
@@ -97,6 +107,15 @@ func parseAdapterResponse(data []byte, r *Result) error {
 		return err
 	}
 	r.Output = resp.Output
+	if len(resp.Directions) > 0 {
+		if r.Metadata == nil {
+			r.Metadata = make(map[string]any)
+		}
+		r.Metadata["plugin_directions"] = resp.Directions
+	}
+	r.CPUUserMs = resp.CPUUserMs
+	r.CPUSysMs = resp.CPUSysMs
+	r.MaxRSSKB = resp.MaxRSSKB
 	if r.Metadata == nil {
 		r.Metadata = make(map[string]any)
 	}

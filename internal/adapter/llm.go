@@ -71,13 +71,15 @@ func (a *LLMAdapter) Run(ctx context.Context, c spec.Candidate, input map[string
 		return &Result{ExitCode: 1, Err: fmt.Errorf("llm: unknown model provider for %q", model)}, fmt.Errorf("llm: unknown model provider for %q", model)
 	}
 
-	dur := time.Since(start).Milliseconds()
+	elapsed := time.Since(start)
+	dur := elapsed.Milliseconds()
 
 	if apiErr != nil {
 		return &Result{
 			ExitCode:   1,
 			Err:        apiErr,
 			DurationMs: dur,
+			Duration:   elapsed,
 			Metadata:   map[string]any{"model": model},
 		}, apiErr
 	}
@@ -86,6 +88,7 @@ func (a *LLMAdapter) Run(ctx context.Context, c spec.Candidate, input map[string
 		Output:     output,
 		ExitCode:   0,
 		DurationMs: dur,
+		Duration:   elapsed,
 		Metadata: map[string]any{
 			"model":         model,
 			"input_tokens":  inputToks,

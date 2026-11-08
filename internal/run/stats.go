@@ -37,6 +37,41 @@ func MeanMetrics(trials []map[string]float64) map[string]float64 {
 	return out
 }
 
+// AggregateMetrics collapses per-trial metric maps into one value per metric
+// using kind: "mean" (default, also ""), "median" or "p95".
+func AggregateMetrics(trials []map[string]float64, kind string) map[string]float64 {
+	stats := ComputeStats(trials)
+	out := make(map[string]float64, len(stats))
+	for k, s := range stats {
+		out[k] = s.Pick(kind)
+	}
+	return out
+}
+
+// Pick returns the aggregate named by kind: "mean" (default, also ""),
+// "median" or "p95".
+func (s MetricStat) Pick(kind string) float64 {
+	switch kind {
+	case "median":
+		return s.Median
+	case "p95":
+		return s.P95
+	default:
+		return s.Mean
+	}
+}
+
+// percentile returns the p-quantile (0..1) of sorted s by linear
+// interpolation between closest ranks.
+func percentile(s []float64, p float64) float64 {
+	if len(s) == 1 {
+		return s[0]
+	}
+	pos := p * float64(len(s)-1)
+	lo, hi := int(math.Floor(pos)), int(math.Ceil(pos))
+	return s[lo] + (pos-float64(lo))*(s[hi]-s[lo])
+}
+
 func statOf(vs []float64) MetricStat {
 	n := len(vs)
 	sum := 0.0
@@ -60,7 +95,12 @@ func statOf(vs []float64) MetricStat {
 		}
 		sd = math.Sqrt(acc / float64(n-1))
 	}
-	return MetricStat{Mean: mean, Stddev: sd, Min: mn, Max: mx, N: n}
+	sorted := append([]float64(nil), vs...)
+	sort.Float64s(sorted)
+	return MetricStat{
+		Median: percentile(sorted, 0.5), P95: percentile(sorted, 0.95),
+		Mean: mean, Stddev: sd, Min: mn, Max: mx, N: n,
+	}
 }
 
 // MetricNames returns the sorted union of metric names across trials.

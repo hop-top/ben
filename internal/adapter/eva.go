@@ -58,6 +58,7 @@ func (a *EvaAdapter) Run(ctx context.Context, c spec.Candidate, input map[string
 
 	result := &Result{
 		DurationMs: elapsed.Milliseconds(),
+		Duration:   elapsed,
 		Metadata:   map[string]any{"accuracy": 0.0},
 	}
 

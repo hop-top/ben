@@ -72,13 +72,13 @@ func TestWeighted_NormalisationAndRanking(t *testing.T) {
 	require.NoError(t, err)
 
 	cands := []scorer.CandidateResult{
-		// "a": worst latency (norm=1.0), best quality (norm=1.0)
-		// score = 0.3*(1.0/1.0) + 0.7*(1.0/1.0) = 0.3 + 0.7 = 1.0 (normalised by totalWeight=1)
+		// "a": worst latency (score 0.0), best quality (1.0)
+		// score = 0.3*0 + 0.7*1 = 0.7
 		{Name: "a", Metrics: map[string]float64{"latency_ms": 300, "quality_score": 0.9}},
-		// "b": best latency (norm=0.0), worst quality (norm=0.0)
-		// score = 0.3*0 + 0.7*0 = 0
+		// "b": best latency (1.0), worst quality (0.0)
+		// score = 0.3*1 + 0.7*0 = 0.3
 		{Name: "b", Metrics: map[string]float64{"latency_ms": 100, "quality_score": 0.1}},
-		// "c": middle values
+		// "c": middle values; score = 0.5
 		{Name: "c", Metrics: map[string]float64{"latency_ms": 200, "quality_score": 0.5}},
 	}
 	results := s.Score(cands)

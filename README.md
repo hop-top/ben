@@ -76,7 +76,7 @@ ben show 01HX...abc
 
 | Adapter    | How ben runs the candidate                                               |
 |------------|--------------------------------------------------------------------------|
-| `cli`      | Spawns a shell command; captures stdout/stderr, exit code, latency       |
+| `cli`      | Spawns a shell command (or a program directly via `args`); captures stdout/stderr, exit code, latency, CPU time, peak RSS |
 | `llm`      | Calls an LLM via API; captures tokens, cost, output                      |
 | `eva`      | Wraps `eva run` as a ben candidate for standard eval suites              |
 | binary     | Any `ben-adapter-*` binary on PATH; communicates via stdio JSON protocol |
@@ -87,12 +87,38 @@ ben show 01HX...abc
 
 | Metric           | Source   | Description                                   |
 |------------------|----------|-----------------------------------------------|
-| `latency_ms`     | built-in | Wall-clock execution time in milliseconds     |
+| `latency_ms`     | built-in | Wall-clock execution time in milliseconds, sub-ms precision (e.g. `0.42`) |
 | `exit_code`      | built-in | Process exit code (cli adapter)               |
 | `output_size`    | built-in | Byte length of stdout output                  |
+| `cpu_user_ms`    | built-in | User-mode CPU time of the child (cli adapter) |
+| `cpu_sys_ms`     | built-in | Kernel-mode CPU time of the child (cli adapter)|
+| `cpu_ms`         | built-in | `cpu_user_ms` + `cpu_sys_ms`                  |
+| `max_rss_kb`     | built-in | Peak resident set size in KiB (cli adapter; unix only) |
 | `tokens`         | llm      | Total tokens consumed (prompt + completion)   |
 | `cost_usd`       | llm      | Estimated cost in USD                         |
 | `quality_score`  | plugin   | 0–1 relevance score; requires llm_judge plugin|
+
+### Resource usage (CPU, memory)
+
+`cpu_*_ms` and `max_rss_kb` come from the child's rusage after it is waited
+for. All are lower-is-better, so `single:cpu_ms` / `single:max_rss_kb` rank
+the smallest value first (`weighted:` treats them like any other metric,
+exactly as for `latency_ms`). A value that cannot be measured is omitted (never reported as
+0): `max_rss_kb` is absent on Windows, and `llm`/`eva` candidates report none.
+In `single:` ranking, a candidate missing the metric ranks last. Linux
+reports `ru_maxrss` in KiB, macOS in bytes; ben normalises to KiB.
+
+What is counted:
+
+- Shell mode (`cmd:` alone, run via `sh -c`): the shell plus any descendants
+  it waited for. `sh` usually `exec`s a lone command, but not always, so shell
+  start-up can add overhead and a compound command (`a && b`) sums both.
+- Direct mode (`args:` set): only the target program and its waited
+  descendants; no shell.
+- Descendants that are not waited for (daemonised or background children) are
+  not counted.
+- `max_rss_kb` is the largest single process in the waited tree (kernel
+  semantics of `ru_maxrss`), not a sum.
 
 ---
 
@@ -100,9 +126,20 @@ ben show 01HX...abc
 
 | Scorer                        | Description                                          |
 |-------------------------------|------------------------------------------------------|
-| `single:<metric>`             | Rank by one metric; lowest wins for cost/latency     |
-| `weighted:<m>=<w>,...`        | Weighted sum across metrics; highest score wins      |
+| `single:<metric>`             | Rank by one metric; best first (see direction below) |
+| `single:<metric>:asc\|desc`   | Same, forcing the direction regardless of the metric |
+| `weighted:<m>=<w>,...`        | Weighted sum of min-max normalised metrics; highest score wins |
 | `raw`                         | No ranking; emit raw metrics only; winner=null       |
+
+Metric direction: every metric is either lower-is-better (`latency_ms`,
+`cpu_*_ms`, `max_rss_kb`, `cost_usd`, `tokens`, `exit_code`) or
+higher-is-better (`quality_score`, `accuracy`, and anything that does not
+declare otherwise). `single:` ranks best first accordingly; `weighted:`
+inverts lower-is-better metrics after normalisation so the faster candidate
+always scores higher. Metrics ben does not own declare direction themselves:
+config plugins via `direction: lower|higher` under `plugins.metrics`; binary
+adapters via an optional `"directions": {"my_metric": "lower"}` object in
+their JSON response.
 
 Examples:
 
@@ -145,6 +182,47 @@ scorer:
     quality_score: 0.7
 ```
 
+Candidates run through `sh -c` by default. To skip the shell (no quoting, no
+shell overhead in `cpu_ms` / `max_rss_kb`), set `args`; `cmd` is then the
+program and each arg is passed verbatim (no word splitting, globbing or
+expansion; `{{input.*}}` is still substituted):
+
+```yaml
+candidates:
+  - name: grep-direct
+    adapter: cli
+    cmd: grep
+    args: ["-r", "func.*Handler", "{{input.repo}}"]
+```
+
+### Repetition, warmup, prepare, stdin
+
+One run is noisy. Repeat it:
+
+```yaml
+repeat: 20        # measured runs per candidate (default 1: single shot)
+warmup: 3         # extra runs executed first and discarded (default 0)
+aggregate: median # value kept in metrics: mean (default) | median | p95
+
+candidates:
+  - name: parse
+    adapter: cli
+    cmd: mytool parse
+    prepare: "rm -rf .cache"       # sh -c before EVERY run (warmups too), untimed
+    input_file: fixtures/in.json   # piped to stdin; {{input.*}} expanded
+```
+
+Flags `--repeat`, `--warmup`, `--aggregate` override the suite values. Candidates
+run sequentially (never concurrently), each finishing all its runs before the
+next starts. A non-zero `prepare` exit, an unreadable `input_file` or a
+cancelled context aborts that candidate (reported in its `error`).
+
+Each candidate records `trials` (one metric map per measured run) and
+`metric_stats` per metric (`n`, `mean`, `median`, `p95`, `min`, `max`,
+`stddev` (sample)). `metrics` holds the chosen aggregate (mean unless
+`aggregate` says otherwise); scorers, `ben compare` and `ben list` use it.
+Table output shows `metric=value±stddev` plus `n=<repeat>`.
+
 ---
 
 ## Plugin protocol
@@ -153,7 +231,10 @@ Binary plugins are auto-discovered as `ben-adapter-<name>` or `ben-reporter-<nam
 Ben communicates via newline-delimited JSON over stdio: it writes a request JSON object to the
 plugin's stdin and reads the response from stdout. Adapter plugins receive
 `{"action":"run","candidate":{...},"input":{...}}` and must respond with
-`{"metrics":{...},"output":"..."}`. Reporter plugins receive `{"run":{...}}` and write
+`{"metrics":{...},"output":"..."}`. Adapters may also report resource usage with
+the optional top-level fields `cpu_user_ms` (number), `cpu_sys_ms` (number) and
+`max_rss_kb` (integer, KiB); omit a field when unmeasured. They feed the
+`cpu_user_ms`, `cpu_sys_ms`, `cpu_ms` and `max_rss_kb` built-in metrics. Reporter plugins receive `{"run":{...}}` and write
 formatted output to stdout. Naming convention: use the adapter/reporter name as the suffix,
 e.g. `ben-adapter-docker`, `ben-reporter-markdown`.
 
